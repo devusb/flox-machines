@@ -124,11 +124,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1791048461,
-        "narHash": "sha256-FFQDjfFcvFkvxw5+Q/vlwJca9SMqYDNHY+/x/erOJgg=",
+        "lastModified": 1791056253,
+        "narHash": "sha256-kTBjO00hBDj0wc4GumiDE2Bh+aNl+3Y3h+P2v54nK3M=",
         "ref": "instances",
-        "rev": "b60a05d4e6c0a79c48712a9d1a432e09318afa2b",
-        "revCount": 1222,
+        "rev": "0773ebc10806ba991661fdfe2e8ef1f881699b74",
+        "revCount": 1224,
         "type": "git",
         "url": "file:///home/mhelton/code/microvm.nix"
       },

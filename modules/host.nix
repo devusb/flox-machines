@@ -134,6 +134,23 @@ in
       inherit (cfg.bridge) externalInterface;
     };
 
+    environment.systemPackages = [
+      (pkgs.callPackage ../pkgs/machine-cli.nix {
+        inherit (cfg) storage;
+        inherit (cfg.defaults) homeSize;
+        parentDataset = cfg.zfs.parentDataset;
+        keyDir = keyDir;
+      })
+    ];
+
+    boot.supportedFilesystems = lib.mkIf (cfg.storage == "zfs") [ "zfs" ];
+
+    services.udev.extraRules = lib.mkIf (cfg.storage == "zfs") ''
+      SUBSYSTEM=="block", KERNEL=="zd*", GROUP="kvm", MODE="0660"
+    '';
+
+    services.zfs.autoSnapshot.enable = lib.mkIf (cfg.storage == "zfs") true;
+
     systemd.services.flox-machines-key = {
       description = "Generate the Flox Machines admin SSH key";
       wantedBy = [ "multi-user.target" ];

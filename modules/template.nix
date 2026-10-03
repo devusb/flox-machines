@@ -54,8 +54,13 @@
 
   networking.hostName = "machine";
   networking.useNetworkd = true;
-  networking.useDHCP = true;
+  networking.useDHCP = false;
   networking.usePredictableInterfaceNames = false;
+  systemd.network.networks."10-eth0" = {
+    matchConfig.Name = "eth0";
+    networkConfig.DHCP = "ipv4";
+    dhcpV4Config.ClientIdentifier = "mac";
+  };
 
   services.openssh = {
     enable = true;

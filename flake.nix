@@ -28,5 +28,15 @@
       checks.${system} = import ./checks {
         inherit self nixpkgs system;
       };
+
+      legacyPackages.${system}.forkTests =
+        let
+          args = {
+            self = inputs.microvm;
+            inherit nixpkgs system;
+          };
+        in
+        import "${inputs.microvm}/checks/instances.nix" args
+        // import "${inputs.microvm}/checks/overlay-store.nix" args;
     };
 }
