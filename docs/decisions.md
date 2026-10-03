@@ -85,3 +85,19 @@ The host module and the fork's instances feature are built test-first with the N
 ## 2026-10-03 Image and zvol storage backends
 
 Instance volumes are image files or zvols behind one option. Image files are what microvm.nix uses natively and what tests and workstations run; zvols are for the production host. Spike 1 ran on image files.
+
+## 2026-10-03 Admin access to machines is SSH over the host bridge
+
+The host generates one SSH key at `/var/lib/flox-machines/id_ed25519`. Each machine's instance directory carries its public key, and the machine installs it for root at boot. Admins reach machines with `machine ssh` over the host-only bridge. vsock SSH was considered and set aside because cloud-hypervisor exposes vsock through a per-VM socket multiplexer that needs extra client configuration.
+
+## 2026-10-03 Bridge addressing from dnsmasq
+
+The host bridge has a /24, and dnsmasq hands out addresses with the machine's hostname recorded in the leases file. `machine ssh` looks machines up there.
+
+## 2026-10-03 Base version marker
+
+Every machine has `/etc/machine/base-version`, set from `floxMachines.baseVersion`, so a person and the tests can see which base a machine booted.
+
+## 2026-10-03 flox from its own flake
+
+flox is not packaged in nixpkgs, so the template takes it from the `github:flox/flox` flake's default package. The flake is not made to follow the platform's nixpkgs, so its binary cache still applies.
