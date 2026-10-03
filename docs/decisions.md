@@ -101,3 +101,11 @@ Every machine has `/etc/machine/base-version`, set from `floxMachines.baseVersio
 ## 2026-10-03 flox from its own flake
 
 flox is not packaged in nixpkgs, so the template takes it from the `github:flox/flox` flake's default package. The flake is not made to follow the platform's nixpkgs, so its binary cache still applies.
+
+## 2026-10-03 Admin SSH resolves machines by MAC
+
+`machine ssh` finds a machine's address from the DHCP lease whose MAC matches the instance's `MICROVM_MAC_0`, not by hostname, because the guest chooses the hostname it sends. Guest SSH host keys are not pinned yet.
+
+## 2026-10-03 Daemon-only store access is set by environment
+
+Guest clients reach the overlay store through `NIX_REMOTE=daemon` in the session and service environment. Setting `store = daemon` in `nix.conf` would also apply to the guest's nix-daemon and point it at itself.

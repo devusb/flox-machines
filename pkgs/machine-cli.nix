@@ -115,7 +115,10 @@ writeShellApplication {
     }
 
     address() {
-      awk -v host="$(instance "$1")" '$4 == host { ip = $3 } END { print ip }' /var/lib/dnsmasq/dnsmasq.leases
+      local mac
+      mac=$(sed -n 's/^MICROVM_MAC_0=//p' "$(dir "$1")/instance.env")
+      [ -n "$mac" ] || return 0
+      awk -v mac="''${mac,,}" 'tolower($2) == mac { ip = $3 } END { print ip }' /var/lib/dnsmasq/dnsmasq.leases
     }
 
     cmd_ssh() {

@@ -50,6 +50,8 @@
         host.wait_for_unit("microvm@machine-bob.service")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
         host.wait_until_succeeds("timeout 10 machine ssh bob true", timeout=300)
+        host.succeed("echo '9999999999 02:de:ad:be:ef:00 10.100.0.250 machine-bob *' >> /var/lib/dnsmasq/dnsmasq.leases")
+        assert host.succeed("timeout 60 machine ssh bob hostname").strip() == "machine-bob"
         assert host.succeed("timeout 60 machine ssh alice hostname").strip() == "machine-alice"
         host.succeed("timeout 60 machine ssh alice id alice")
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 1")
