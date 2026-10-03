@@ -164,8 +164,16 @@ writeShellApplication {
       rm -rf "$d"
       rm -f "/nix/var/nix/gcroots/microvm/$(instance "$name")" "/nix/var/nix/gcroots/microvm/booted-$(instance "$name")"
       if [ "$STORAGE" = zfs ]; then
-        zfs destroy "$(zvol "$name" home)"
-        zfs destroy "$(zvol "$name" state)"
+        udevadm settle
+        for volume in home state; do
+          for _ in $(seq 1 20); do
+            zfs destroy "$(zvol "$name" "$volume")" 2> /dev/null && break
+            sleep 1
+          done
+          if zfs list "$(zvol "$name" "$volume")" > /dev/null 2>&1; then
+            die "could not destroy $(zvol "$name" "$volume")"
+          fi
+        done
       fi
       echo "destroyed $(instance "$name")"
     }
