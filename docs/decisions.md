@@ -10,13 +10,25 @@ Each person's machine is a microVM with its own kernel. systemd-nspawn container
 
 microvm.nix provides declarative VM definitions, systemd integration, virtiofs and vsock handling, and a CLI. Running cloud-hypervisor directly under hand-written systemd units was considered and rejected as re-implementing that. microvm.nix lacks instances from a template and bakes per-VM parameters into the runner, so those are added in a fork under the flox org and proposed upstream.
 
-## 2026-10-03 No shared store or binary cache in v1
+## 2026-10-03 Overlay store over the host store
 
-Sharing the host's store or daemon with guests was wanted but is not a supported microvm.nix use case: issue 65 asks for it and has no answer, and the guest module disables nix-daemon unless a writable overlay exists. A host binary cache was considered and dropped because guests are long lived and re-substituting from public caches is acceptable. Each guest has a read-only base image and a writable overlay.
+Each guest's store is a `local-overlay` store whose lower layer is the host's `/nix/store` and `/nix/var`, shared read-only, with a persistent upper layer and a persistent `/nix/var` on per-instance volumes. This is forest.nix's layout with the upper layer kept across restarts. Chosen by Morgan over a guest-owned store seeded from the host at boot, which would be consistent by construction but copies the base closure into every instance and does not share the host's paths. The cost is that host store paths a guest references can disappear when the host collects garbage; the boot-time `nix-store --verify --repair` restores substitutable ones. The model will be revisited once it runs.
 
-## 2026-10-03 Ephemeral overlay in v1
+## 2026-10-03 Host garbage collection is manual, with instances stopped
 
-The writable overlay is recreated on every boot. The documented caveat for a persisted overlay is that the guest Nix database forgets paths after a reboot, and the maintainers describe keeping it in sync with a changing base as unsolved. Community workarounds exist. Re-fetching a person's environments after a reboot is accepted for v1 and a persistent overlay is a deferred fork feature.
+The host store mostly grows. Collecting garbage on the host is a manual operation run with every instance stopped, since overlayfs requires the lower layer not to lose paths while mounted. No GC roots are kept on the host for paths guests reference. Decided by Morgan.
+
+## 2026-10-03 Guest state on its own volume
+
+The guest's `/nix/var`, holding the overlay store's database, profiles and GC roots, is a volume separate from the upper store layer. The upper layer and the database must survive together for the store to stay consistent, and NixOS clients write profiles under `/nix/var`, which is on the root tmpfs otherwise.
+
+## 2026-10-03 Every guest client uses the daemon
+
+`NIX_REMOTE=daemon` is set for all guest sessions and services, and only the daemon opens the `local-overlay` store. A root client opening the merged `/nix/store` as a plain local store would write whiteouts over host paths when collecting garbage.
+
+## 2026-10-03 Machine sizes come from the template
+
+Memory and vCPUs default to the template's values, so changing them in the host configuration resizes every instance without an override at the restart the change triggers. `machine create` writes no size into `instance.env`. `machine resize` writes a per-instance override and `machine resize --reset` removes it.
 
 ## 2026-10-03 Host rebuild restarts instances
 

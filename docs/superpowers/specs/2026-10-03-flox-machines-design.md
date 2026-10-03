@@ -16,7 +16,6 @@ A NixOS host that turns a tailnet identity into a personal NixOS microVM built f
 - Multiple hosts, placement, or migration.
 - A structured mobile chat UI. The phone path is Tailscale SSH and tmux.
 - Egress filtering.
-- A persistent writable Nix store inside guests. A guest reboot re-fetches what the person installed. See "Store".
 - Dynamic memory management. Memory is allocated per guest.
 - Centralized credential injection. Credentials are self-service inside the guest.
 
@@ -74,8 +73,8 @@ One NixOS configuration, `machine`, exported from the flake and registered as a 
 - **Registry pin.** The host flake's `nixpkgs` and `home-manager` inputs are set as the guest's flake registry entries and nix path, so every guest and every person's home-manager flake resolve to the inputs the base was built from.
 - **Containers.** Rootless podman with the docker compatibility shim.
 - **Services.** Any port the person opens is reachable at the guest's tailnet hostname. Tailscale serve is available to the person for HTTPS.
-- **Store.** Read-only base image plus a writable overlay. See "Store".
-- **Status.** The login shell prints when the base last changed and whether the person's environments are re-fetching.
+- **Store.** A `local-overlay` store over the host store with persistent upper layer and state. See "Store".
+- **Status.** The login shell prints when the base last changed.
 
 ## Instances
 
@@ -111,8 +110,8 @@ A host rebuild regenerates the template runner and refreshes `current` for every
 ### Restart, re-image, resize, backup, offboard
 
 - **Restart.** `machine restart <name>` or a systemd restart of the instance service.
-- **Re-image.** Stop, delete the overlay volume, start. Home and state remain.
-- **Resize.** Edit memory or vcpus in `instance.env`, restart.
+- **Re-image.** Stop, delete the upper store and `/nix/var` volumes, start. Home and state remain.
+- **Resize.** The template sets the default memory and vCPUs. Changing them in the host configuration resizes every instance that has no override, at the restart the change triggers. `machine resize` writes an override into `instance.env` for one instance, and `machine resize --reset` removes it.
 - **Backup.** ZFS snapshots of home and state zvols. Restore is a zvol rollback or clone.
 - **Offboard.** `machine destroy <name>`: stop, remove the instance directory, snapshot and schedule the zvols for deletion after a retention period, delete the device from the tailnet through the API.
 
@@ -127,18 +126,25 @@ A host rebuild regenerates the template runner and refreshes `current` for every
 
 ## Store
 
-Each guest has a read-only erofs image of the template closure, built once per template version, and a writable overlay on a per-instance volume. The guest runs its own nix-daemon. Flox and home-manager inside the guest write to the overlay. The host's store is not shared and the host's daemon is not reachable from guests.
+Each guest's Nix store is a `local-overlay` store, using the layout forest.nix uses for its guests.
 
-In v1 the overlay is recreated on every boot. After a reboot the person's Flox environments and home-manager generation are re-materialized from their manifests and flake on next activation. Home is untouched.
+- **Lower layer.** The host's `/nix/store` at `/nix/.ro-store` and the host's `/nix/var` at `/nix/.ro-var`, both shared read-only over virtiofs. Every path valid on the host is valid in the guest with no copy.
+- **Upper layer.** A per-instance volume at `/nix/.rw-store`. Paths the guest builds or fetches, including Flox environments and home-manager generations, land here.
+- **Guest state.** A second per-instance volume at `/nix/var` holds the guest's database, profiles and GC roots.
+- **Daemon.** The guest's nix-daemon opens the store as `local-overlay://` with the host database as the lower store. Every client, including root, goes through the daemon.
 
-A persistent overlay is the second fork feature and is deferred. See "microvm.nix fork".
+Both volumes persist across restarts and base updates. A restart re-pulls nothing.
+
+At boot, before user sessions, the guest runs `nix-store --verify --repair`. It drops database entries for missing paths that nothing refers to, and substitutes missing paths that the guest's paths still reference.
+
+The host store mostly grows. Host garbage collection is a manual operation with every instance stopped, because the overlay's lower layer must not lose paths while mounted. Paths the host collects that a guest still references are restored by that guest's repair at its next boot. Locally built paths with no substitute cannot be restored.
 
 ## Security model
 
 - The boundary between people and between a person and the host is the hypervisor. Each guest has its own kernel.
 - Inside a guest, the agent runs as the person. Anything in the person's home, including credentials, is readable by any agent they run there. That is the written contract.
 - A compromised agent can reach what the guest's owner can reach on the tailnet, plus the internet. Check mode on sensitive destinations is the control.
-- Guests cannot reach the host's nix-daemon or any host service except the hypervisor's virtio devices and vsock SSH, which only the host initiates.
+- Guests cannot reach the host's nix-daemon or any host service except the hypervisor's virtio devices and vsock SSH, which only the host initiates. Guests can read the host's store and `/nix/var`, including the host's profiles and GC roots, read-only.
 - Home and state are zvols attached only to their own guest. The host never mounts them and has no filesystem path into a person's files. Between guests, the hypervisor is the boundary.
 - Admins are root on the host and could mount any zvol. This is stated to users. LUKS inside the guest with the key on the state volume is an optional later addition that raises the effort for a host admin without changing that line.
 
@@ -161,11 +167,9 @@ Maintained under the flox GitHub org and consumed as the host flake's microvm in
 - **Runner late binding.** The runner script reads `instance.env` from its working directory for hostname, memory, vcpus, interface id, MAC and vsock CID, with the values from the configuration as defaults. Today these are baked into the script at build time. The Tailscale port is not a runner concern; the guest reads it from the instance share and the host firewall rule comes from the instance CLI.
 - **Guest module.** `microvm.instance` declares the instance share at a fixed mount point, sets the hostname at boot, and loads systemd credentials from the instance directory.
 
-### Feature 2: persistent writable store (deferred)
+### Feature 2: overlay store
 
-- An option that keeps the Nix state directory on the overlay volume so the guest database survives reboots. Closure registration at boot is already additive.
-- A boot-time verify that drops database entries for paths that disappeared with the previous base image.
-- On base update, the previous base image is attached as a second lower layer for one boot and any of its paths referenced from the overlay are copied up before it is retired.
+- Guest option `microvm.overlayStore` sets up the store described in "Store": the host `/nix/var` share, the upper and `/nix/var` volumes, the daemon's `local-overlay` store URL, `NIX_REMOTE=daemon` for every client, and the boot-time verify and repair unit.
 
 ## Testing
 
