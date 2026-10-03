@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     microvm = {
-      url = "git+file:///home/mhelton/code/microvm.nix?ref=instances";
+      url = "github:devusb/microvm.nix/instances";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {

@@ -124,18 +124,18 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1791056253,
-        "narHash": "sha256-kTBjO00hBDj0wc4GumiDE2Bh+aNl+3Y3h+P2v54nK3M=",
-        "ref": "instances",
-        "rev": "0773ebc10806ba991661fdfe2e8ef1f881699b74",
-        "revCount": 1224,
-        "type": "git",
-        "url": "file:///home/mhelton/code/microvm.nix"
+        "lastModified": 1791065811,
+        "narHash": "sha256-P4iBfkNC1ZZuM7NMsK7lci0CFEAZg0vN0Fd2lsNJgWw=",
+        "owner": "devusb",
+        "repo": "microvm.nix",
+        "rev": "3fa90b719b3193196e104b9b50ad86506fc96209",
+        "type": "github"
       },
       "original": {
+        "owner": "devusb",
         "ref": "instances",
-        "type": "git",
-        "url": "file:///home/mhelton/code/microvm.nix"
+        "repo": "microvm.nix",
+        "type": "github"
       }
     },
     "nixpkgs": {
