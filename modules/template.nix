@@ -76,6 +76,12 @@
 
   environment.etc."machine/base-version".text = floxMachines.baseVersion;
 
+  environment.interactiveShellInit = ''
+    if [ -r /run/microvm/instance/system ] && [ "$(cat /run/microvm/instance/system)" != "$(readlink -f /run/booted-system)" ]; then
+      echo "A newer base for this machine is ready. Restart to use it: sudo reboot"
+    fi
+  '';
+
   programs.bash.interactiveShellInit = ''
     if [ -n "$SSH_CONNECTION" ] && [ -z "$TMUX" ] && [ "$(id -u)" != 0 ]; then
       exec tmux new-session -A -s main

@@ -20,8 +20,8 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 
 | Test | Covers |
 |---|---|
-| `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account with sudo; pinned registry; flox and home-manager installed; tailscaled running with Tailscale SSH on, kept across a base update; restart onto a new base with home, Tailscale state and the SSH host key kept |
-| `store-reboot` | guest-added store paths and host paths across restart, base update, `machine gc` and reimage |
+| `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account with sudo; pinned registry; flox and home-manager installed; tailscaled running with Tailscale SSH on; a host switch leaves running machines on their base with an update notice; `machine restart` and a reboot inside the machine take the new base, keeping home, Tailscale state and the SSH host key |
+| `store-reboot` | guest-added store paths and host paths across restart, a base update with `restartOnUpdate = true`, `machine gc` and reimage |
 | `user-units` | an enabled user unit starts after a machine restart with nobody logged in, and the journal keeps the previous boot |
 | `zfs-backend` | the persistent zvol is created, keeps data across a restart, and is destroyed with the machine |
 | `tailscale-status-jq` | the filter that turns `tailscale status --json` into `machine status` fields, on captured outputs |

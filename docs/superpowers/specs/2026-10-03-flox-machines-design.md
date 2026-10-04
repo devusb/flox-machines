@@ -105,7 +105,7 @@ One NixOS configuration, `machine`, exported from the flake and registered as a 
 
 ### Update
 
-A host rebuild regenerates the template runner and refreshes `current` for every instance. Each instance service has the guest closure as a restart trigger, so instances whose base changed are shut down cleanly through the hypervisor control socket and started on the new base. Instances whose base did not change are untouched. Running sessions and agents on a restarted guest are gone. Agent history is recovered with each tool's resume.
+A host rebuild regenerates the template runner and points every instance at it. By default no running instance restarts: each keeps its booted base until it is restarted with `machine restart`, `machine resize` or a reboot from inside the machine, and interactive shells in the machine show a notice while a newer base is waiting. With `floxMachines.restartOnUpdate = true`, instances whose base changed are shut down cleanly and started on the new base right away. Stopped instances start on the new base either way.
 
 ### Restart, re-image, resize, backup, offboard
 

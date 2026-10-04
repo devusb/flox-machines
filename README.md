@@ -118,3 +118,13 @@ networking.firewall.interfaces.enp1s0.allowedTCPPorts = [ 22 ];
 ```
 
 Machines get DNS servers from `floxMachines.bridge.dnsServers` over DHCP, by default `1.1.1.1` and `9.9.9.9`. The host does not answer DNS on the bridge.
+
+## Updates
+
+A host rebuild that changes the template does not restart running machines. Each machine keeps its booted base until it restarts: `machine restart <name>`, `machine resize`, or `sudo reboot` inside the machine. While a newer base is waiting, interactive shells in the machine show:
+
+```
+A newer base for this machine is ready. Restart to use it: sudo reboot
+```
+
+`machine list` shows waiting machines as stale. To restart machines on every template change instead, set `floxMachines.restartOnUpdate = true`.

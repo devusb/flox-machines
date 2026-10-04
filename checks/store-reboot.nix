@@ -29,6 +29,7 @@ in
 
         floxMachines = {
           enable = true;
+          restartOnUpdate = true;
           template = {
             imports = [
               self.nixosModules.machineTemplate

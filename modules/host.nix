@@ -35,6 +35,16 @@ in
       description = "Guest NixOS module every machine is built from.";
     };
 
+
+    restartOnUpdate = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Restart running machines when a host rebuild changes the template.
+        When false, running machines keep their booted base until they are
+        restarted, and show a notice at login that a newer base is waiting.
+      '';
+    };
     baseVersion = lib.mkOption {
       type = lib.types.str;
       default = "1";
@@ -151,6 +161,7 @@ in
 
     microvm.templates.machine = {
       config = cfg.template;
+      restartIfChanged = cfg.restartOnUpdate;
       specialArgs = {
         inherit inputs;
         floxMachines = cfg;
@@ -254,6 +265,23 @@ in
         Restart = "on-failure";
         RestartSec = "5s";
       };
+    };
+
+    systemd.services.flox-machines-base-marker = {
+      description = "Tell machines which base the template currently builds";
+      wantedBy = [ "microvms.target" ];
+      after = [ "install-microvm-template-machine.service" ];
+      restartTriggers = [ config.microvm.templates.machine.config.config.system.build.toplevel ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        for d in /var/lib/microvms/machine-*; do
+          [ -d "$d/instance" ] || continue
+          readlink "$d/current/share/microvm/system" > "$d/instance/system" || true
+        done
+      '';
     };
     systemd.services.flox-machines-key = {
       description = "Generate the Flox Machines admin SSH key";

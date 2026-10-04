@@ -132,6 +132,7 @@ writeShellApplication {
       instance "$name" > "$d/instance/hostname"
       echo "$name" > "$d/instance/user"
       cp "$KEY.pub" "$d/instance/authorized_keys"
+      readlink "$d/current/share/microvm/system" > "$d/instance/system"
 
       if [ "$STORAGE" = zfs ]; then
         create_zvol "$name" "$PERSIST_SIZE"

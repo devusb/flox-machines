@@ -30,10 +30,6 @@ The guest's `/nix/var`, holding the overlay store's database, profiles and GC ro
 
 Memory and vCPUs default to the template's values, so changing them in the host configuration resizes every instance without an override at the restart the change triggers. `machine create` writes no size into `instance.env`. `machine resize` writes a per-instance override and `machine resize --reset` removes it.
 
-## 2026-10-03 Host rebuild restarts instances
-
-Base updates are applied by rebuilding the host, which restarts every instance whose base changed. Live in-place updates by copying the closure into each guest and running switch-to-configuration were considered and rejected because they add a deploy step and leave guests on old kernels until a later reboot. The cost is that running sessions die on base changes, which is accepted because agent history is recovered with resume.
-
 ## 2026-10-03 Guests are user-owned Tailscale nodes
 
 Each guest is claimed by its owner through a login link, so the only policy rule needed is the self autogroup. The alternative of host-minted tagged auth keys with one tag per person was rejected because it requires a service with write access to the whole tailnet policy and makes admin access rules per person. Admin access to guests is from the host over vsock SSH instead of over the tailnet.
@@ -141,3 +137,7 @@ The front door runs as `flox-machines-front-door` with its state in `/var/lib/fl
 ## 2026-10-04 virtiofsd stays root
 
 microvm.nix runs virtiofsd as root. Running it unprivileged needs user-namespace uid mapping so guests still see root-owned store files, and the read-only host Nix database must stay readable to it. That is a change in the microvm.nix fork with real breakage risk, deferred until the rest is stable.
+
+## 2026-10-04 Machines keep their base until restarted
+
+A host rebuild that changes the template updates every machine's runner but restarts none of them by default. Running machines keep their booted base until `machine restart`, `machine resize` or a reboot from inside the machine, and interactive shells show a notice when a newer base is waiting. The host writes the template's current system path into each machine's read-only instance share as `instance/system` for that comparison. `floxMachines.restartOnUpdate = true` restarts machines on every template change instead. Chosen by Morgan so running sessions are never interrupted by an update; the cost is that fixes in the base wait for each person's restart.

@@ -64,11 +64,30 @@
         host.succeed("timeout 60 machine ssh alice command -v flox")
         host.succeed("timeout 60 machine ssh alice 'runuser -u alice -- sh -c \"echo keep > /home/alice/keep\"'")
         hostkey = host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip()
-        ta = host.succeed("systemctl show -p ActiveEnterTimestampMonotonic microvm@machine-alice.service").strip()
+        def started(name):
+            return host.succeed(f"systemctl show -p ActiveEnterTimestampMonotonic microvm@machine-{name}.service").strip()
+
+        def base(name):
+            return host.succeed(f"timeout 60 machine ssh {name} cat /etc/machine/base-version").strip()
+
+        def notice(name):
+            return "newer base" in host.succeed(f"timeout 60 machine ssh {name} 'bash -ic true' 2>&1")
+
+        ta = started("alice")
+        assert not notice("alice"), "update notice before any update"
         host.succeed("/run/booted-system/specialisation/v2/bin/switch-to-configuration test")
-        host.wait_until_succeeds(f"[ \"$(systemctl show -p ActiveEnterTimestampMonotonic microvm@machine-alice.service)\" != '{ta}' ]", timeout=300)
+        host.succeed("test -L /var/lib/microvms/machine-alice/current")
+        assert started("alice") == ta, "a host switch restarted alice"
+        assert base("alice") == "1", "alice changed base without a restart"
+        assert notice("alice"), "no update notice after a host switch"
+
+        host.succeed("machine restart alice")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
-        host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 2")
+        assert base("alice") == "2"
+        assert not notice("alice"), "update notice after taking the new base"
+
+        host.succeed("timeout 20 machine ssh bob systemctl reboot || true")
+        host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=300)
         host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
         assert host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip() == hostkey, "ssh host key changed across restart"
         host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
