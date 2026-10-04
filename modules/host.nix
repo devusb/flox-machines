@@ -29,7 +29,6 @@ in
       description = "Guest NixOS module every machine is built from.";
     };
 
-
     restartOnUpdate = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -46,7 +45,10 @@ in
     };
 
     storage = lib.mkOption {
-      type = lib.types.enum [ "image" "zfs" ];
+      type = lib.types.enum [
+        "image"
+        "zfs"
+      ];
       default = "image";
       description = "Backing for machine volumes: image files or ZFS zvols.";
     };
@@ -79,7 +81,6 @@ in
         description = "Upper Nix store volume size in MB.";
       };
     };
-
 
     frontDoor = {
       enable = lib.mkEnableOption "the front door web service";
@@ -142,21 +143,31 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    warnings = lib.optional (config.networking.firewall.allowedTCPPorts != [ ] || config.networking.firewall.allowedUDPPorts != [ ]) "floxMachines: ports opened in networking.firewall.allowedTCPPorts or allowedUDPPorts are reachable from machines. Open host services per interface with networking.firewall.interfaces.<name> instead.";
+    warnings =
+      lib.optional
+        (
+          config.networking.firewall.allowedTCPPorts != [ ]
+          || config.networking.firewall.allowedUDPPorts != [ ]
+        )
+        "floxMachines: ports opened in networking.firewall.allowedTCPPorts or allowedUDPPorts are reachable from machines. Open host services per interface with networking.firewall.interfaces.<name> instead.";
 
-    assertions = [ {
-      assertion = cfg.storage == "zfs" -> cfg.zfs.parentDataset != null;
-      message = "floxMachines.zfs.parentDataset must be set when storage is zfs";
-    }
-    {
-      assertion = cfg.frontDoor.oauthSecretFile == null || !lib.hasPrefix "${builtins.storeDir}/" cfg.frontDoor.oauthSecretFile;
-      message = "floxMachines.frontDoor.oauthSecretFile must not be in the Nix store, where every user can read it";
-    }
-    # Machines run on host store paths. Host garbage collection while they run deletes paths they use; `machine gc` stops them first.
-    {
-      assertion = !config.nix.gc.automatic && (config.nix.settings.min-free or 0) == 0;
-      message = "floxMachines: automatic host garbage collection (nix.gc.automatic, nix.settings.min-free) must stay off; run `machine gc`, which stops machines before collecting";
-    } ];
+    assertions = [
+      {
+        assertion = cfg.storage == "zfs" -> cfg.zfs.parentDataset != null;
+        message = "floxMachines.zfs.parentDataset must be set when storage is zfs";
+      }
+      {
+        assertion =
+          cfg.frontDoor.oauthSecretFile == null
+          || !lib.hasPrefix "${builtins.storeDir}/" cfg.frontDoor.oauthSecretFile;
+        message = "floxMachines.frontDoor.oauthSecretFile must not be in the Nix store, where every user can read it";
+      }
+      # Machines run on host store paths. Host garbage collection while they run deletes paths they use; `machine gc` stops them first.
+      {
+        assertion = !config.nix.gc.automatic && (config.nix.settings.min-free or 0) == 0;
+        message = "floxMachines: automatic host garbage collection (nix.gc.automatic, nix.settings.min-free) must stay off; run `machine gc`, which stops machines before collecting";
+      }
+    ];
 
     microvm.templates.machine = {
       config = cfg.template;
@@ -196,9 +207,11 @@ in
         bind-dynamic = true;
         port = 0;
         dhcp-option = [ "option:dns-server,${lib.concatStringsSep "," cfg.bridge.dnsServers}" ];
-        dhcp-range = let
-          prefix = lib.concatStringsSep "." (lib.take 3 (lib.splitString "." cfg.bridge.address));
-        in "${prefix}.10,${prefix}.250,12h";
+        dhcp-range =
+          let
+            prefix = lib.concatStringsSep "." (lib.take 3 (lib.splitString "." cfg.bridge.address));
+          in
+          "${prefix}.10,${prefix}.250,12h";
       };
     };
 
@@ -228,8 +241,6 @@ in
     '';
 
     services.zfs.autoSnapshot.enable = lib.mkIf (cfg.storage == "zfs") true;
-
-
 
     users.users.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable {
       isSystemUser = true;
@@ -271,12 +282,24 @@ in
             "--state-dir"
             "/var/lib/flox-machines-front-door"
           ]
-          ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [ "--secret-file" "%d/secret" ]
-          ++ lib.optionals (cfg.frontDoor.testListen != null) [ "--test-listen" cfg.frontDoor.testListen ]
+          ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [
+            "--secret-file"
+            "%d/secret"
+          ]
+          ++ lib.optionals (cfg.frontDoor.testListen != null) [
+            "--test-listen"
+            cfg.frontDoor.testListen
+          ]
         );
-        ExecStartPre = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs allow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
-        ExecStopPost = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs unallow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
-        LoadCredential = lib.optional (cfg.frontDoor.oauthSecretFile != null) "secret:${cfg.frontDoor.oauthSecretFile}";
+        ExecStartPre =
+          lib.optional (cfg.storage == "zfs")
+            "+/run/booted-system/sw/bin/zfs allow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
+        ExecStopPost =
+          lib.optional (cfg.storage == "zfs")
+            "+/run/booted-system/sw/bin/zfs unallow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
+        LoadCredential = lib.optional (
+          cfg.frontDoor.oauthSecretFile != null
+        ) "secret:${cfg.frontDoor.oauthSecretFile}";
         User = frontDoorUser;
         Group = frontDoorUser;
         SupplementaryGroups = [ "kvm" ];
@@ -332,15 +355,21 @@ in
           install -d -m 0700 ${keyDir}
           ${lib.getExe' pkgs.openssh "ssh-keygen"} -q -t ed25519 -N "" -C flox-machines -f ${keyDir}/id_ed25519
         fi
-      '' + (if cfg.frontDoor.enable then ''
-        chown ${frontDoorUser} ${keyDir}/id_ed25519
-        chgrp kvm ${keyDir}
-        chmod 0750 ${keyDir}
-      '' else ''
-        chown root ${keyDir}/id_ed25519
-        chgrp root ${keyDir}
-        chmod 0700 ${keyDir}
-      '');
+      ''
+      + (
+        if cfg.frontDoor.enable then
+          ''
+            chown ${frontDoorUser} ${keyDir}/id_ed25519
+            chgrp kvm ${keyDir}
+            chmod 0750 ${keyDir}
+          ''
+        else
+          ''
+            chown root ${keyDir}/id_ed25519
+            chgrp root ${keyDir}
+            chmod 0700 ${keyDir}
+          ''
+      );
     };
   };
 }

@@ -10,13 +10,23 @@ in
   systemd.services.machine-user = {
     description = "Create the machine owner's account from the instance directory";
     wantedBy = [ "multi-user.target" ];
-    before = [ "systemd-user-sessions.service" "sshd.service" ];
-    unitConfig.RequiresMountsFor = [ instanceDir "/home" ];
+    before = [
+      "systemd-user-sessions.service"
+      "sshd.service"
+    ];
+    unitConfig.RequiresMountsFor = [
+      instanceDir
+      "/home"
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.shadow pkgs.coreutils pkgs.getent ];
+    path = [
+      pkgs.shadow
+      pkgs.coreutils
+      pkgs.getent
+    ];
     script = ''
       if [ -f ${instanceDir}/authorized_keys ]; then
         install -d -m 0700 /root/.ssh
@@ -35,7 +45,11 @@ in
   systemd.services.machine-linger = {
     description = "Start the machine owner's user services";
     wantedBy = [ "multi-user.target" ];
-    after = [ "machine-user.service" "microvm-verify-store.service" "systemd-logind.service" ];
+    after = [
+      "machine-user.service"
+      "microvm-verify-store.service"
+      "systemd-logind.service"
+    ];
     requires = [ "machine-user.service" ];
     wants = [ "systemd-logind.service" ];
     unitConfig.ConditionPathExists = "${instanceDir}/user";
