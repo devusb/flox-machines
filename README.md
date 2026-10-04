@@ -72,3 +72,38 @@ Tests are NixOS tests that run nested VMs. Build them on a machine with KVM:
 nix build -L .#checks.x86_64-linux.create-restart
 nix build -L .#checks.x86_64-linux.store-reboot
 ```
+
+## Front door
+
+The front door is a web page on your tailnet where people create and claim their own machine.
+
+```nix
+floxMachines.frontDoor = {
+  enable = true;
+  oauthSecretFile = "/run/secrets/flox-machines-oauth";
+};
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `floxMachines.frontDoor.enable` | `false` | run the front door |
+| `floxMachines.frontDoor.hostname` | `"machines"` | its tailnet node name |
+| `floxMachines.frontDoor.tags` | `[ "tag:flox-machines" ]` | tags it advertises |
+| `floxMachines.frontDoor.oauthSecretFile` | `null` | OAuth client secret, or auth key, for its first join |
+
+Without `oauthSecretFile`, the front door prints a Tailscale login URL to its journal until an admin opens it:
+
+```bash
+journalctl -u flox-machines-front-door
+```
+
+A person opens `https://machines.<tailnet>.ts.net`, taps Create, then taps the link to add the machine to their tailnet. Their machine is named after their login: `first.last@example.com` becomes `machine-first-last`.
+
+The tailnet policy needs:
+
+- `tag:flox-machines`, owned by admins, with the OAuth client allowed to create keys for it.
+- A grant letting members reach `tag:flox-machines` on port 443, and on port 80 if HTTPS certificates are off.
+- A Tailscale SSH rule letting members SSH to their own devices as their own user.
+- Device approval turned off, or an admin approving each new machine.
+
+Machines reach Tailscale through the host's NAT, so set `floxMachines.bridge.externalInterface`.

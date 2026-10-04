@@ -12,6 +12,9 @@ Flox Machines turns one declared NixOS template into per-person microVMs on a ho
 | `modules/user.nix` | owner account and linger, created at boot from the instance share |
 | `modules/persist.nix` | the `/persist` volume and impermanence paths |
 | `pkgs/machine-cli.nix` | the `machine` CLI, a `writeShellApplication` |
+| `pkgs/tailscale-status.jq` | turns `tailscale status --json` into `machine status` fields |
+| `front-door/` | the front door Go service; unit tests run with `CGO_ENABLED=0 go test ./...` |
+| `pkgs/front-door.nix` | its Nix package; update `vendorHash` when Go dependencies change |
 | `checks/` | NixOS tests; `lean-guest.nix` is shared by them |
 | `docs/testing.md` | what each test covers and what is only checked on a live host |
 
@@ -42,6 +45,9 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> .#checks.x86
 | `.#checks.x86_64-linux.store-reboot` | about 155 s |
 | `.#checks.x86_64-linux.zfs-backend` | about 70 s |
 | `.#checks.x86_64-linux.user-units` | about 65 s |
+| `.#checks.x86_64-linux.front-door` | about 160 s |
+| `.#checks.x86_64-linux.front-door-tsnet` | about 40 s, add `-L` to see its output |
+| `.#checks.x86_64-linux.tailscale-status-jq` | seconds, no VM |
 | `.#legacyPackages.x86_64-linux.forkTests.instances` | about 65 s |
 | `.#legacyPackages.x86_64-linux.forkTests.instances-restart` | about 85 s |
 | `.#legacyPackages.x86_64-linux.forkTests.overlay-store` | about 90 s |

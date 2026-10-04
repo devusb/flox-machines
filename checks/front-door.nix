@@ -11,7 +11,10 @@
       name = "front-door";
 
       nodes.host = {
-        imports = [ self.nixosModules.floxMachines ];
+        imports = [
+          self.nixosModules.floxMachines
+          ({ pkgs, ... }: { environment.systemPackages = [ pkgs.curl ]; })
+        ];
 
         boot.kernelModules = [ "kvm" ];
         virtualisation.qemu.options = [
@@ -19,11 +22,15 @@
           "host"
         ];
         virtualisation.diskSize = 8192;
-        virtualisation.memorySize = 3072;
-        virtualisation.cores = 2;
+        virtualisation.memorySize = 4096;
+        virtualisation.cores = 4;
 
         floxMachines = {
           enable = true;
+          frontDoor = {
+            enable = true;
+            testListen = "127.0.0.1:8080";
+          };
           template = {
             imports = [
               self.nixosModules.machineTemplate
@@ -58,6 +65,17 @@
         assert json.loads(host.succeed("timeout 30 machine status nobody-here --json")) == {"name": "nobody-here", "exists": False}
         host.fail("machine create root")
         host.fail("machine create admin")
+
+        host.wait_for_unit("flox-machines-front-door.service")
+        host.wait_for_open_port(8080)
+        host.succeed("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ | grep -qx 403")
+        import re
+        page = host.succeed("curl -s -H 'X-Test-Login: bob@example.com' http://127.0.0.1:8080/")
+        match = re.search(r'name="token" value="([0-9a-f]+)"', page)
+        assert match, page
+        token = match.group(1)
+        host.succeed(f"curl -s -o /dev/null -H 'X-Test-Login: bob@example.com' -d token={token} http://127.0.0.1:8080/create")
+        host.succeed("test \"$(cat /var/lib/microvms/machine-bob/owner)\" = bob@example.com")
       '';
 
       meta.timeout = 600;

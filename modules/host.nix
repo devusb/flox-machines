@@ -10,6 +10,13 @@
 let
   cfg = config.floxMachines;
   keyDir = "/var/lib/flox-machines";
+  machineCli = pkgs.callPackage ../pkgs/machine-cli.nix {
+    inherit (cfg) storage;
+    inherit (cfg.defaults) persistSize;
+    parentDataset = cfg.zfs.parentDataset;
+    inherit keyDir;
+  };
+  frontDoorPackage = pkgs.callPackage ../pkgs/front-door.nix { };
 in
 {
   imports = [ inputs.microvm.nixosModules.host ];
@@ -64,6 +71,39 @@ in
       };
     };
 
+
+    frontDoor = {
+      enable = lib.mkEnableOption "the front door web service";
+
+      hostname = lib.mkOption {
+        type = lib.types.str;
+        default = "machines";
+        description = "Tailnet node name of the front door.";
+      };
+
+      tags = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ "tag:flox-machines" ];
+        description = "Tags the front door node advertises.";
+      };
+
+      oauthSecretFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          File holding a Tailscale OAuth client secret or auth key for the
+          front door's first join. Without it, the front door prints a login
+          URL to its journal.
+        '';
+      };
+
+      testListen = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        internal = true;
+        description = "For tests only: serve plain HTTP on this address with identity from a request header.";
+      };
+    };
     bridge = {
       name = lib.mkOption {
         type = lib.types.str;
@@ -134,14 +174,7 @@ in
       inherit (cfg.bridge) externalInterface;
     };
 
-    environment.systemPackages = [
-      (pkgs.callPackage ../pkgs/machine-cli.nix {
-        inherit (cfg) storage;
-        inherit (cfg.defaults) persistSize;
-        parentDataset = cfg.zfs.parentDataset;
-        keyDir = keyDir;
-      })
-    ];
+    environment.systemPackages = [ machineCli ];
 
     boot.supportedFilesystems = lib.mkIf (cfg.storage == "zfs") [ "zfs" ];
 
@@ -151,6 +184,34 @@ in
 
     services.zfs.autoSnapshot.enable = lib.mkIf (cfg.storage == "zfs") true;
 
+
+    systemd.services.flox-machines-front-door = lib.mkIf cfg.frontDoor.enable {
+      description = "Flox Machines front door";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network-online.target" "flox-machines-key.service" ];
+      wants = [ "network-online.target" ];
+      path = [ machineCli "/run/current-system/sw" ];
+      serviceConfig = {
+        ExecStart = lib.escapeShellArgs (
+          [
+            (lib.getExe frontDoorPackage)
+            "--hostname"
+            cfg.frontDoor.hostname
+            "--tags"
+            (lib.concatStringsSep "," cfg.frontDoor.tags)
+            "--machine"
+            (lib.getExe' machineCli "machine")
+          ]
+          ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [ "--secret-file" "%d/secret" ]
+          ++ lib.optionals (cfg.frontDoor.testListen != null) [ "--test-listen" cfg.frontDoor.testListen ]
+        );
+        LoadCredential = lib.optional (cfg.frontDoor.oauthSecretFile != null) "secret:${cfg.frontDoor.oauthSecretFile}";
+        StateDirectory = "flox-machines/front-door";
+        StateDirectoryMode = "0700";
+        Restart = "on-failure";
+        RestartSec = "5s";
+      };
+    };
     systemd.services.flox-machines-key = {
       description = "Generate the Flox Machines admin SSH key";
       wantedBy = [ "multi-user.target" ];
