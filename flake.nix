@@ -53,7 +53,10 @@
           in
           import "${inputs.microvm}/checks/instances.nix" args
           // import "${inputs.microvm}/checks/overlay-store.nix" args
-        );
+        )
+        // {
+          formatting = treefmt.config.build.check self;
+        };
 
       formatter.${system} = treefmt.config.build.wrapper;
 
