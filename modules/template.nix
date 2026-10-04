@@ -70,7 +70,7 @@
     settings.experimental-features = [ "nix-command" "flakes" ];
     registry.nixpkgs.flake = inputs.nixpkgs;
     registry.home-manager.flake = inputs.home-manager;
-    nixPath = [ "nixpkgs=flake:nixpkgs" ];
+    settings.nix-path = [ "nixpkgs=flake:nixpkgs" ];
   };
 
   environment.systemPackages = [
