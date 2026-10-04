@@ -33,6 +33,8 @@ var pageTemplate = template.Must(template.ParseFS(templateFS, "templates/page.ht
 
 const loginInterval = time.Minute
 
+const createTimeout = 5 * time.Minute
+
 type server struct {
 	cli CLI
 	id  Identity
@@ -140,7 +142,9 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	}
 	status, err := s.cli.Status(r.Context(), name)
 	if err == nil && !status.Exists {
-		if err := s.cli.Create(r.Context(), name, login); err != nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), createTimeout)
+		defer cancel()
+		if err := s.cli.Create(ctx, name, login); err != nil {
 			log.Printf("create %s: %v", name, err)
 			s.renderIndex(w, r, login, name, err.Error())
 			return

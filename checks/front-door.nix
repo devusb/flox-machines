@@ -85,6 +85,17 @@
         host.wait_for_open_port(8080)
         host.succeed("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ | grep -qx 403")
         import re
+        host.wait_until_succeeds("curl -s -H 'X-Test-Login: alice@example.com' http://127.0.0.1:8080/ | grep -q 'Preparing your Tailscale login'", timeout=300)
+
+        host.succeed("machine create carol && machine destroy carol")
+        page = host.succeed("curl -s -H 'X-Test-Login: carol@example.com' http://127.0.0.1:8080/")
+        carol_match = re.search(r'name="token" value="([0-9a-f]+)"', page)
+        assert carol_match, page
+        token = carol_match.group(1)
+        host.succeed(f"curl -s -o /dev/null -H 'X-Test-Login: carol@example.com' -d token={token} http://127.0.0.1:8080/create")
+        host.succeed("test \"$(cat /var/lib/microvms/machine-carol/owner)\" = carol@example.com")
+        host.succeed("machine destroy carol")
+
         page = host.succeed("curl -s -H 'X-Test-Login: bob@example.com' http://127.0.0.1:8080/")
         match = re.search(r'name="token" value="([0-9a-f]+)"', page)
         assert match, page

@@ -20,6 +20,7 @@ type fakeCLI struct {
 	logins    int
 	createErr error
 	loginErr  error
+	createCtx error
 }
 
 func (f *fakeCLI) Status(_ context.Context, name string) (machines.Status, error) {
@@ -28,7 +29,8 @@ func (f *fakeCLI) Status(_ context.Context, name string) (machines.Status, error
 	return s, nil
 }
 
-func (f *fakeCLI) Create(_ context.Context, name, owner string) error {
+func (f *fakeCLI) Create(ctx context.Context, name, owner string) error {
+	f.createCtx = ctx.Err()
 	f.creates = append(f.creates, name+" "+owner)
 	return f.createErr
 }
@@ -256,5 +258,23 @@ func TestLoginFailureIsShown(t *testing.T) {
 	w := post(h, "/login", alice, token)
 	if !strings.Contains(w.Body.String(), "could not start a Tailscale login") {
 		t.Fatalf("got %d, error not shown:\n%s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreateOutlivesRequest(t *testing.T) {
+	cli := &fakeCLI{}
+	h, _ := newTest(cli)
+	token := tokenFrom(t, get(h, alice).Body.String())
+	rctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := httptest.NewRequest("POST", "/create", strings.NewReader(url.Values{"token": {token}}.Encode())).WithContext(rctx)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("X-Test-Login", alice)
+	h.ServeHTTP(httptest.NewRecorder(), r)
+	if len(cli.creates) != 1 {
+		t.Fatalf("creates = %v", cli.creates)
+	}
+	if cli.createCtx != nil {
+		t.Errorf("create ran with a cancelled context: %v", cli.createCtx)
 	}
 }

@@ -304,3 +304,45 @@ func TestGCStopsAndStartsRunning(t *testing.T) {
 	f.called(t, "nix-collect-garbage")
 	f.notCalled(t, "systemctl stop microvm@machine-bob.service")
 }
+
+func TestCreateLockFileGroupWritable(t *testing.T) {
+	m, _ := newTestManager(t, "image")
+	must(t, m.Create(ctx, "alice", ""))
+	st, err := os.Stat(filepath.Join(m.Config.StateDir, ".lock-alice"))
+	must(t, err)
+	if st.Mode().Perm() != 0o660 {
+		t.Errorf("lock mode = %o", st.Mode().Perm())
+	}
+}
+
+type ctxRunner struct {
+	*fakeRunner
+	cancel     context.CancelFunc
+	destroyErr error
+}
+
+func (c *ctxRunner) Run(rctx context.Context, name string, args ...string) ([]byte, error) {
+	line := name + " " + strings.Join(args, " ")
+	if strings.HasPrefix(line, "systemctl start") {
+		c.cancel()
+		return nil, context.Canceled
+	}
+	if strings.HasPrefix(line, "zfs destroy") {
+		c.destroyErr = rctx.Err()
+	}
+	return c.fakeRunner.Run(rctx, name, args...)
+}
+
+func TestCreateCleanupIgnoresCancelledContext(t *testing.T) {
+	m, f := newTestManager(t, "zfs")
+	cctx, cancel := context.WithCancel(context.Background())
+	r := &ctxRunner{fakeRunner: f, cancel: cancel}
+	m.Runner = r
+	if err := m.Create(cctx, "alice", ""); err == nil {
+		t.Fatal("create succeeded")
+	}
+	f.called(t, "zfs destroy -r tank/machines/alice")
+	if r.destroyErr != nil {
+		t.Errorf("cleanup ran with a cancelled context: %v", r.destroyErr)
+	}
+}

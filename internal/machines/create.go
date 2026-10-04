@@ -8,12 +8,20 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func (m *Manager) lock(name string) (func(), error) {
-	f, err := os.OpenFile(filepath.Join(m.Config.StateDir, ".lock-"+name), os.O_CREATE|os.O_RDWR, 0o660)
+	p := filepath.Join(m.Config.StateDir, ".lock-"+name)
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0o660)
 	if err != nil {
 		return nil, err
+	}
+	if st, err := f.Stat(); err == nil && st.Mode().Perm() != 0o660 {
+		os.Chmod(p, 0o660)
+	}
+	if gid, ok := m.LookupGroup("kvm"); ok && os.Geteuid() == 0 {
+		os.Chown(p, 0, gid)
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		f.Close()
@@ -123,6 +131,8 @@ func (m *Manager) writeOwner(d, owner string, root bool) error {
 }
 
 func (m *Manager) cleanup(ctx context.Context, name string, zvolCreated bool, cause error) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+	defer cancel()
 	if zvolCreated {
 		if err := m.run(ctx, "zfs", "destroy", "-r", m.zvol(name)); err != nil {
 			return fmt.Errorf("%w; %s was left in place, run 'machine destroy %s'", cause, strings.TrimSpace(m.zvol(name)), name)
