@@ -107,3 +107,14 @@ The tailnet policy needs:
 - Device approval turned off, or an admin approving each new machine.
 
 Machines reach Tailscale through the host's NAT, so set `floxMachines.bridge.externalInterface`.
+
+## Host firewall
+
+Machines can reach the host only for DHCP and ping. The module does not trust the bridge, so host services are closed to machines unless they are opened on every interface. Ports in `networking.firewall.allowedTCPPorts` or `allowedUDPPorts`, including the SSH port opened by `services.openssh.openFirewall`, are open on all interfaces, the bridge included; the module warns when any are set. Open host services on the public interface only:
+
+```nix
+services.openssh.openFirewall = false;
+networking.firewall.interfaces.enp1s0.allowedTCPPorts = [ 22 ];
+```
+
+Machines get DNS servers from `floxMachines.bridge.dnsServers` over DHCP, by default `1.1.1.1` and `9.9.9.9`. The host does not answer DNS on the bridge.

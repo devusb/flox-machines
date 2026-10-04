@@ -115,6 +115,15 @@ in
         default = "10.100.0.1";
         description = "Host address on the bridge. The bridge is a /24.";
       };
+      dnsServers = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "1.1.1.1"
+          "9.9.9.9"
+        ];
+        description = "DNS servers handed to machines over DHCP.";
+      };
+
       externalInterface = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -124,6 +133,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    warnings = lib.optional (config.networking.firewall.allowedTCPPorts != [ ] || config.networking.firewall.allowedUDPPorts != [ ]) "floxMachines: ports opened in networking.firewall.allowedTCPPorts or allowedUDPPorts are reachable from machines. Open host services per interface with networking.firewall.interfaces.<name> instead.";
+
     assertions = [ {
       assertion = cfg.storage == "zfs" -> cfg.zfs.parentDataset != null;
       message = "floxMachines.zfs.parentDataset must be set when storage is zfs";
@@ -160,13 +171,15 @@ in
       settings = {
         interface = cfg.bridge.name;
         bind-dynamic = true;
+        port = 0;
+        dhcp-option = [ "option:dns-server,${lib.concatStringsSep "," cfg.bridge.dnsServers}" ];
         dhcp-range = let
           prefix = lib.concatStringsSep "." (lib.take 3 (lib.splitString "." cfg.bridge.address));
         in "${prefix}.10,${prefix}.250,12h";
       };
     };
 
-    networking.firewall.trustedInterfaces = [ cfg.bridge.name ];
+    networking.firewall.interfaces.${cfg.bridge.name}.allowedUDPPorts = [ 67 ];
 
     networking.nat = lib.mkIf (cfg.bridge.externalInterface != null) {
       enable = true;
