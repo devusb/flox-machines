@@ -58,7 +58,9 @@ Each machine's Nix store layers its own persistent upper layer over the host's s
 
 ## Storage backends
 
-Each machine has one persistent volume mounted at `/persist`. The guest root is tmpfs, and `/home`, `/var/lib/tailscale` and the SSH host key live on `/persist` through the impermanence module. The Nix store layers are separate image files that `machine reimage` deletes.
+Each machine has one persistent volume mounted at `/persist`. The guest root is tmpfs. These paths live on `/persist` through the impermanence module: `/home`, `/var/log`, `/var/lib/nixos`, `/var/lib/systemd/coredump`, `/var/lib/systemd/timers` and `/var/lib/tailscale`. The SSH host key is kept in `/persist/etc/ssh`. The Nix store layers are separate image files that `machine reimage` deletes.
+
+Anything written elsewhere, including system changes made with sudo, resets when the machine restarts. Keep what should last in home, in Nix or Flox environments, or add it to the template's persistence list.
 
 With `storage = "image"`, the persistent volume is `persist.img` under `/var/lib/microvms/machine-<name>/`. With `storage = "zfs"`, it is the zvol `<parentDataset>/<name>`, auto-snapshotted. Snapshot a machine with `zfs snapshot <parentDataset>/<name>@<label>`; roll back with the machine stopped.
 

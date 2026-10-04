@@ -71,6 +71,9 @@
         host.wait_until_succeeds("timeout 10 machine ssh alice systemctl is-active machine-user.service", timeout=300)
         host.wait_until_succeeds("timeout 10 machine ssh alice test -f /home/alice/marker-ran", timeout=120)
         host.succeed("timeout 60 machine ssh alice loginctl show-user alice --property=Linger | grep -qx Linger=yes")
+        import json
+        boots = json.loads(host.succeed("timeout 60 machine ssh alice journalctl --list-boots -o json"))
+        assert len(boots) >= 2, f"journal did not keep the previous boot: {boots}"
         def started_at(unit):
             return int(host.succeed(f"timeout 60 machine ssh alice systemctl show -p ActiveEnterTimestampMonotonic --value {unit}").strip())
         assert started_at("user@1000.service") >= started_at("microvm-verify-store.service"), "user manager started before the store repair finished"

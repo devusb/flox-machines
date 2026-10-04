@@ -18,6 +18,10 @@
     hideMounts = true;
     directories = [
       "/home"
+      "/var/log"
+      "/var/lib/nixos"
+      "/var/lib/systemd/coredump"
+      "/var/lib/systemd/timers"
       {
         directory = "/var/lib/tailscale";
         mode = "0700";
