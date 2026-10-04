@@ -120,4 +120,4 @@ The owner's account is in `wheel`, and `wheel` needs no password for sudo. Decid
 
 ## 2026-10-03 Tailscale in the template
 
-The template enables `services.tailscale`. tailscaled's state directory is bind-mounted from `/var/lib/machine/tailscale` on the persistent state volume, so the node identity and `tailscale serve` configuration survive restarts and base updates. A boot service sets the owner as Tailscale operator and turns on Tailscale SSH, so the owner manages `tailscale serve` without sudo. Joining the tailnet is the claim flow and is not automated yet.
+The template enables `services.tailscale`. tailscaled's state directory is bind-mounted from `/var/lib/machine/tailscale` on the persistent state volume, so the node identity and `tailscale serve` configuration survive restarts and base updates. Tailscale SSH is turned on through `services.tailscale.extraSetFlags`. No operator is set, so the owner runs `tailscale serve` with sudo. Joining the tailnet is the claim flow and is not automated yet.

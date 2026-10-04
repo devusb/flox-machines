@@ -20,7 +20,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 
 | Test | Covers |
 |---|---|
-| `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account with sudo; pinned registry; flox and home-manager installed; tailscaled running with the owner as operator and Tailscale SSH on, kept across a base update; restart onto a new base with home kept |
+| `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account with sudo; pinned registry; flox and home-manager installed; tailscaled running with Tailscale SSH on, kept across a base update; restart onto a new base with home kept |
 | `store-reboot` | guest-added store paths and host paths across restart, base update, `machine gc` and reimage |
 | `user-units` | an enabled user unit starts after a machine restart with nobody logged in |
 | `forkTests.instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
