@@ -17,6 +17,7 @@
   keyDir,
   stateDir ? "/var/lib/microvms",
   tailscaleStatusFilter ? ./tailscale-status.jq,
+  reservedNames ? [ ],
 }:
 
 writeShellApplication {
@@ -40,6 +41,7 @@ writeShellApplication {
     PARENT=${lib.escapeShellArg (toString parentDataset)}
     PERSIST_SIZE=${toString persistSize}
     KEY=${keyDir}/id_ed25519
+    RESERVED=(${lib.escapeShellArgs ([ "admin" "root" "nobody" "sshd" "tailscale" "microvm" "nixbld" ] ++ reservedNames)})
 
     usage() {
       cat <<USAGE
@@ -70,9 +72,10 @@ writeShellApplication {
 
     check_name() {
       valid_name "$1"
-      case "$1" in
-        admin | root | nobody | sshd | tailscale | microvm | nixbld) die "reserved name '$1'" ;;
-      esac
+      local reserved
+      for reserved in "''${RESERVED[@]}"; do
+        [ "$1" = "$reserved" ] && die "reserved name '$1'"
+      done
       local uid
       uid=$(getent passwd "$1" | cut -d: -f3) || true
       if [ -n "$uid" ] && [ "$uid" -lt 1000 ]; then

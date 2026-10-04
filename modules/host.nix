@@ -11,6 +11,7 @@ let
   cfg = config.floxMachines;
   keyDir = "/var/lib/flox-machines";
   machineCli = pkgs.callPackage ../pkgs/machine-cli.nix {
+    reservedNames = builtins.attrNames config.microvm.templates.machine.config.config.users.users;
     inherit (cfg) storage;
     inherit (cfg.defaults) persistSize;
     parentDataset = cfg.zfs.parentDataset;

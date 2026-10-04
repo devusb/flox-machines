@@ -35,6 +35,12 @@
             imports = [
               self.nixosModules.machineTemplate
               ./lean-guest.nix
+              {
+                users.users.guestonly = {
+                  isSystemUser = true;
+                  group = "nogroup";
+                };
+              }
             ];
           };
           defaults = {
@@ -65,6 +71,8 @@
         assert json.loads(host.succeed("timeout 30 machine status nobody-here --json")) == {"name": "nobody-here", "exists": False}
         host.fail("machine create root")
         host.fail("machine create admin")
+        host.fail("machine create messagebus")
+        host.fail("machine create guestonly")
 
         host.wait_for_unit("flox-machines-front-door.service")
         host.succeed("test \"$(systemctl show -p User --value flox-machines-front-door.service)\" = flox-machines-front-door")
