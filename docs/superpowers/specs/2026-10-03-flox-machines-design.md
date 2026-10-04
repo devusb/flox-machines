@@ -148,6 +148,20 @@ The host store mostly grows. Host garbage collection is a manual operation with 
 - The persistent volume is attached only to its own guest. The host never mounts them and has no filesystem path into a person's files. Between guests, the hypervisor is the boundary.
 - Admins are root on the host and could mount any zvol. This is stated to users. LUKS inside the guest with the key on the state volume is an optional later addition that raises the effort for a host admin without changing that line.
 
+## Tier-0 assets
+
+Anyone holding one of these can read or change every machine, so each is handled as tier 0.
+
+| Asset | What it gives | Handling |
+|---|---|---|
+| Root on the host | Every machine's disks, memory and `/persist`, the admin SSH key, the front door's identity | Few admins. SSH only on the public interface, key-only, through Tailscale where possible. No other services on the host |
+| The Hetzner account | Rescue boot, reinstall and console access, which bypass host root entirely | Hardware-key 2FA on every login. No shared logins. API tokens scoped to the server and kept off the host |
+| Backups on the storage box | Every person's home and credentials, as of each snapshot | Encrypted on the host before sending, with the key not stored on the storage box. The storage box reachable only with a key dedicated to the host, and append-only where the protocol allows |
+| The Tailscale admin console and the front door's OAuth client | Changing the policy that keeps machines apart; minting `tag:flox-machines` keys | Hardware-key 2FA for admins. The OAuth client scoped to creating auth keys for `tag:flox-machines` only, stored in a root-only file outside the Nix store, rotated when an admin leaves |
+| The flake repository and its deploy path | Arbitrary code as root on the next host rebuild | Protected branch, reviewed merges, deploys only from that branch |
+
+Encryption of the machine zvols at rest, unlocked at boot over SSH in the initrd, is an option for a later version. Without it, physical access to the disks or the Hetzner rescue system reads them.
+
 ## Front door
 
 A small HTTP service behind Tailscale serve at a fixed tailnet hostname. Tailscale serve adds identity headers, so the service has no login of its own. It shows the viewer's instance if one exists, with its state, the claim link if unclaimed, the SSH command, and buttons for restart and re-image. If no instance exists it shows create. It shells out to the instance CLI. Admins see all instances.

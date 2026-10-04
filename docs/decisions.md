@@ -121,3 +121,23 @@ The template enables `services.tailscale`. tailscaled's state directory `/var/li
 ## 2026-10-04 One persistent volume with impermanence
 
 Each machine has a single persistent volume at `/persist`, and the impermanence module binds the paths worth keeping from it: `/home`, `/var/log`, `/var/lib/nixos`, `/var/lib/systemd/coredump`, `/var/lib/systemd/timers` and `/var/lib/tailscale`, following impermanence's recommended list for a headless system. The SSH host key is kept at `/persist/etc/ssh` through `services.openssh.hostKeys`. With ZFS this is one zvol per machine, so one snapshot captures everything that matters about a machine. The Nix store layers stay separate image files, because they are rebuildable and would fill snapshots with churn. Separate home and state zvols, more zvols for the store layers, and a dataset per machine were considered. The persistent volume is marked `neededForBoot`, as impermanence requires.
+
+## 2026-10-04 Machines reach the host only for DHCP
+
+The host does not trust the bridge. Only DHCP is allowed from machines, through `networking.firewall.interfaces.<bridge>.allowedUDPPorts`, plus ping and replies to connections the host opened. dnsmasq does not answer DNS on the bridge; machines get public resolvers over DHCP. Ports opened globally, including by `services.openssh.openFirewall`, still reach machines, so the module warns about them and the README says to open host services per interface. The module does not change the SSH setup itself, so it cannot lock an admin out. A custom nftables table that dropped everything from the bridge was considered and rejected in favor of the standard options.
+
+## 2026-10-04 Machines are isolated from each other on the bridge
+
+Machine taps are isolated bridge ports through networkd's `Isolated=` setting, so machines cannot reach each other over the bridge. They can still reach each other over the tailnet.
+
+## 2026-10-04 No MAC or IP pinning on bridge ports
+
+Pinning each tap to its MAC and IP needs hand-written bridge filtering rules; NixOS and networkd have no option for it. With isolation, the remaining risk is a machine spoofing another machine's MAC to take its DHCP lease, so that `machine ssh` reaches the wrong machine. The planned fix is admin access over vsock, which microvm.nix supports for cloud-hypervisor through each VM's own socket, so `machine ssh` stops depending on the network.
+
+## 2026-10-04 The front door runs as its own user
+
+The front door runs as `flox-machines-front-door` with its state in `/var/lib/flox-machines-front-door`. Sudo rules let it run only `machine create`, `machine status` and `machine login` as root. Putting its state under the root-only `/var/lib/flox-machines` with a shared group was considered and rejected, because that directory holds the admin SSH key. `oauthSecretFile` must not be a Nix store path.
+
+## 2026-10-04 virtiofsd stays root
+
+microvm.nix runs virtiofsd as root. Running it unprivileged needs user-namespace uid mapping so guests still see root-owned store files, and the read-only host Nix database must stay readable to it. That is a change in the microvm.nix fork with real breakage risk, deferred until the rest is stable.
