@@ -147,7 +147,11 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p := page{Login: login, Name: name, Token: s.token(login)}
+	s.renderIndex(w, r, login, name, "")
+}
+
+func (s *server) renderIndex(w http.ResponseWriter, r *http.Request, login, name, message string) {
+	p := page{Login: login, Name: name, Token: s.token(login), Message: message}
 	status, err := s.cli.Status(r.Context(), name)
 	if err != nil {
 		log.Printf("status %s: %v", name, err)
@@ -157,7 +161,7 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 	}
 	p.Status = status
 	p.State = PageStateFor(login, status)
-	if p.State == StateLogin {
+	if p.State == StateLogin && message == "" {
 		if err := s.maybeLogin(r.Context(), name); err != nil {
 			log.Printf("login %s: %v", name, err)
 			p.Message = err.Error()
@@ -176,6 +180,8 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	if err == nil && !status.Exists {
 		if err := s.cli.Create(r.Context(), name, login); err != nil {
 			log.Printf("create %s: %v", name, err)
+			s.renderIndex(w, r, login, name, err.Error())
+			return
 		}
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -195,6 +201,8 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 			if err := s.cli.Login(r.Context(), name); err != nil {
 				log.Printf("login %s: %v", name, err)
+				s.renderIndex(w, r, login, name, err.Error())
+				return
 			}
 		}
 	}

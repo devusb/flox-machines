@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,9 +13,11 @@ import (
 )
 
 type fakeCLI struct {
-	status  Status
-	creates []string
-	logins  int
+	status    Status
+	creates   []string
+	logins    int
+	createErr error
+	loginErr  error
 }
 
 func (f *fakeCLI) Status(_ context.Context, name string) (Status, error) {
@@ -25,12 +28,12 @@ func (f *fakeCLI) Status(_ context.Context, name string) (Status, error) {
 
 func (f *fakeCLI) Create(_ context.Context, name, owner string) error {
 	f.creates = append(f.creates, name+" "+owner)
-	return nil
+	return f.createErr
 }
 
 func (f *fakeCLI) Login(_ context.Context, name string) error {
 	f.logins++
-	return nil
+	return f.loginErr
 }
 
 type headerIdentity struct{}
@@ -230,5 +233,26 @@ func TestReadyPageDoesNotRefresh(t *testing.T) {
 	h, _ := newTest(&fakeCLI{status: loadStatus(t, "status-running.json")})
 	if strings.Contains(get(h, alice).Body.String(), `http-equiv="refresh"`) {
 		t.Fatal("ready page refreshes")
+	}
+}
+
+func TestCreateFailureIsShown(t *testing.T) {
+	cli := &fakeCLI{createErr: errors.New("machine create: reserved name 'dnsmasq'")}
+	h, _ := newTest(cli)
+	token := tokenFrom(t, get(h, alice).Body.String())
+	w := post(h, "/create", alice, token)
+	if !strings.Contains(w.Body.String(), "reserved name") {
+		t.Fatalf("got %d, error not shown:\n%s", w.Code, w.Body.String())
+	}
+}
+
+func TestLoginFailureIsShown(t *testing.T) {
+	cli := &fakeCLI{loginErr: errors.New("could not start a Tailscale login"), status: Status{Exists: true, Owner: alice, Reachable: true,
+		Tailscale: &TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}}}
+	h, _ := newTest(cli)
+	token := tokenFrom(t, get(h, alice).Body.String())
+	w := post(h, "/login", alice, token)
+	if !strings.Contains(w.Body.String(), "could not start a Tailscale login") {
+		t.Fatalf("got %d, error not shown:\n%s", w.Code, w.Body.String())
 	}
 }
