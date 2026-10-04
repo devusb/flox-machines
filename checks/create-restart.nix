@@ -94,7 +94,7 @@
         host.succeed("machine list | grep -q machine-alice")
         host.succeed("machine create carol")
         host.wait_for_unit("microvm@machine-carol.service")
-        host.succeed("machine destroy carol")
+        host.succeed("timeout 30 machine destroy carol")
         host.fail("systemctl is-active microvm@machine-carol.service")
         host.succeed("test ! -e /var/lib/microvms/machine-carol")
         host.fail("machine create 'Bad Name'")
