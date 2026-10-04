@@ -1,0 +1,13 @@
+{
+  "name": "alice",
+  "exists": true,
+  "owner": "alice@example.com",
+  "running": true,
+  "reachable": true,
+  "tailscale": {
+    "state": "NeedsLogin",
+    "authURL": "",
+    "dnsName": "",
+    "owner": ""
+  }
+}

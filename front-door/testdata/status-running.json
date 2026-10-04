@@ -1,0 +1,13 @@
+{
+  "name": "alice",
+  "exists": true,
+  "owner": "alice@example.com",
+  "running": true,
+  "reachable": true,
+  "tailscale": {
+    "state": "Running",
+    "authURL": "",
+    "dnsName": "machine-alice.example.ts.net",
+    "owner": "alice@example.com"
+  }
+}
