@@ -151,6 +151,11 @@ in
     {
       assertion = cfg.frontDoor.oauthSecretFile == null || !lib.hasPrefix "${builtins.storeDir}/" cfg.frontDoor.oauthSecretFile;
       message = "floxMachines.frontDoor.oauthSecretFile must not be in the Nix store, where every user can read it";
+    }
+    # Machines run on host store paths. Host garbage collection while they run deletes paths they use; `machine gc` stops them first.
+    {
+      assertion = !config.nix.gc.automatic && (config.nix.settings.min-free or 0) == 0;
+      message = "floxMachines: automatic host garbage collection (nix.gc.automatic, nix.settings.min-free) must stay off; run `machine gc`, which stops machines before collecting";
     } ];
 
     microvm.templates.machine = {

@@ -55,7 +55,7 @@ A host rebuild that changes the template restarts every machine onto the new bas
 
 ## Store
 
-Each machine's Nix store layers its own persistent upper layer over the host's store, which it reads but never writes. Paths a person installs survive restarts and base updates. Host garbage collection runs only through `machine gc`. Each machine repairs missing referenced paths from its substituters at boot.
+Each machine's Nix store layers its own persistent upper layer over the host's store, which it reads but never writes. Paths a person installs survive restarts and base updates. Host garbage collection runs only through `machine gc`; enabling `nix.gc.automatic` or `nix.settings.min-free` on the host is an evaluation error. Each machine repairs missing referenced paths from its substituters at boot.
 
 ## Storage backends
 
