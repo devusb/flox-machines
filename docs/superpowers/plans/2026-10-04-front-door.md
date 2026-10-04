@@ -201,3 +201,15 @@ This is a checkpoint with Morgan, not a pass/fail task. It runs in a session tha
 - [ ] **Step 3:** Morgan opens the page, creates a machine, taps the claim link, and reaches the ready page. Check `ssh <name>@<tailnet name>` and a direct (not DERP) connection.
 - [ ] **Step 4:** Iterate on whatever is rough: wording, timing, states, errors. Each change gets a unit test where it touches handler logic, then redeploys. Wipe and recreate machines and front door state as needed.
 - [ ] **Step 5:** Commit what changed, one commit per fix.
+
+---
+
+### Task 6b: Security evaluation before merge
+
+Evaluate each item for breakage. Implement the ones that hold up, one commit each, each with a test where the behavior is observable. Record the rest, with reasons, in `docs/decisions.md`.
+
+1. Stop trusting the bridge interface on the host. Allow only DHCP from guests.
+2. Isolate bridge ports, and pin each tap to its MAC and IP.
+3. Assert that `oauthSecretFile` is not a store path, and run the front door unprivileged.
+4. Check whether virtiofsd can run unprivileged.
+5. Write the tier-0 handling for the host, the Hetzner account and backups into the spec.
