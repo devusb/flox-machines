@@ -23,7 +23,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 | `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account with sudo; pinned registry; flox and home-manager installed; tailscaled running with Tailscale SSH on; a host switch leaves running machines on their base with an update notice; `machine restart` and a reboot inside the machine take the new base, keeping home, Tailscale state and the SSH host key |
 | `store-reboot` | guest-added store paths and host paths across restart, a base update with `restartOnUpdate = true`, `machine gc`, the guest's own garbage collection, and reimage |
 | `user-units` | an enabled user unit starts after a machine restart with nobody logged in, and the journal keeps the previous boot |
-| `zfs-backend` | the persistent zvol is created, keeps data across a restart, and is destroyed with the machine |
+| `zfs-backend` | the persistent zvol is created sparse, keeps data across a restart, grows with `machine grow` along with the store image, refuses to shrink, and is destroyed with the machine |
 | `front-door` | on the ZFS backend: `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names; the front door service in test mode creating a machine and showing its login state; its user being refused sudo, stopping a machine and destroying a zvol |
 | `front-door-tsnet` | the front door starts its real tsnet node without network and stays up |
 | `network-isolation` | machines reach the host only for DHCP and ping, and cannot reach each other over the bridge |
