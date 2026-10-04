@@ -92,5 +92,6 @@ The CLI and test scripts are shell and Python inside Nix strings.
 
 - Work in a branch and a worktree under `.worktrees/`.
 - Conventional commit messages, one logical change per commit.
+- Run `nix fmt` before committing; the `formatting` check fails on unformatted files.
 - Record design choices not covered by a spec in `docs/decisions.md`.
 - Specs go in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`.

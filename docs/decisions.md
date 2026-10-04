@@ -169,3 +169,7 @@ A machine's `owner` file has mode 0640 and group `kvm`, so the front door can re
 ## 2026-10-04 A failed create keeps a zvol it cannot remove
 
 When `machine create` fails after making the persist zvol and cannot destroy it, it leaves the machine directory and the zvol in place and says to run `machine destroy <name>`. The front door has no `destroy` permission, so this is what happens when a create through the page fails late.
+
+## 2026-10-04 treefmt-nix without flake-parts
+
+`nix fmt` and the `formatting` check come from treefmt-nix's `lib.evalModule`, called directly in `flake.nix`, with nixfmt, gofmt and yamlfmt. The flake stays a plain flake rather than moving to flake-parts for treefmt-nix's flake module.
