@@ -5,6 +5,8 @@
   gawk,
   gnugrep,
   gnused,
+  getent,
+  jq,
   openssh,
   systemd,
   e2fsprogs,
@@ -14,6 +16,7 @@
   persistSize,
   keyDir,
   stateDir ? "/var/lib/microvms",
+  tailscaleStatusFilter ? ./tailscale-status.jq,
 }:
 
 writeShellApplication {
@@ -23,6 +26,8 @@ writeShellApplication {
     gawk
     gnugrep
     gnused
+    getent
+    jq
     openssh
     systemd
   ] ++ lib.optionals (storage == "zfs") [
@@ -40,7 +45,9 @@ writeShellApplication {
       cat <<USAGE
     Usage: machine <command> [args]
 
-      create <name>                 create and start a machine
+      create <name> [--owner <login>]  create and start a machine
+      status <name> --json          report a machine's state as JSON
+      login <name>                  start a Tailscale login on a machine
       ssh <name> [command...]       run a command as root on a machine
       restart <name>                restart a machine
       resize <name> <mem-MB> <vcpu> set a per-machine size and restart
@@ -57,8 +64,20 @@ writeShellApplication {
       exit 1
     }
 
-    check_name() {
+    valid_name() {
       [[ "$1" =~ ^[a-z][a-z0-9-]{0,30}$ ]] || die "invalid name '$1'"
+    }
+
+    check_name() {
+      valid_name "$1"
+      case "$1" in
+        admin | root | nobody | sshd | tailscale | microvm | nixbld) die "reserved name '$1'" ;;
+      esac
+      local uid
+      uid=$(getent passwd "$1" | cut -d: -f3) || true
+      if [ -n "$uid" ] && [ "$uid" -lt 1000 ]; then
+        die "reserved name '$1'"
+      fi
     }
 
     instance() {
@@ -70,7 +89,7 @@ writeShellApplication {
     }
 
     require() {
-      check_name "$1"
+      valid_name "$1"
       [ -d "$(dir "$1")" ] || die "no machine '$1'"
     }
 
@@ -92,7 +111,14 @@ writeShellApplication {
     }
 
     cmd_create() {
-      local name=$1
+      local name=$1 owner=""
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --owner) [ $# -ge 2 ] || die "usage: machine create <name> [--owner <login>]"; owner=$2; shift 2 ;;
+          *) die "usage: machine create <name> [--owner <login>]" ;;
+        esac
+      done
       check_name "$name"
       [ -e "$(dir "$name")" ] && die "machine '$name' exists"
       [ -f "$KEY.pub" ] || die "admin key $KEY.pub missing"
@@ -109,6 +135,11 @@ writeShellApplication {
       fi
 
       chown -R microvm:kvm "$d"
+      if [ -n "$owner" ]; then
+        printf '%s\n' "$owner" > "$d/owner"
+        chown root:root "$d/owner"
+        chmod 600 "$d/owner"
+      fi
       systemctl start "$(unit "$name")"
       echo "created $(instance "$name")"
     }
@@ -130,6 +161,52 @@ writeShellApplication {
       exec ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "root@$ip" "$@"
     }
 
+
+    run_ssh() {
+      local seconds=$1 name=$2 ip
+      shift 2
+      ip=$(address "$name")
+      [ -n "$ip" ] || return 255
+      timeout "$seconds" ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "root@$ip" "$@"
+    }
+
+    cmd_status() {
+      local name=$1
+      [ "''${2:-}" = --json ] || die "usage: machine status <name> --json"
+      valid_name "$name"
+      local d
+      d=$(dir "$name")
+      if [ ! -d "$d" ]; then
+        jq -n -c --arg name "$name" '{name: $name, exists: false}'
+        return
+      fi
+      local owner="" running=false reachable=false tailscale=null
+      [ -f "$d/owner" ] && owner=$(cat "$d/owner")
+      systemctl is-active -q "$(unit "$name")" && running=true
+      if run_ssh 5 "$name" true; then
+        reachable=true
+        local raw
+        raw=$(run_ssh 10 "$name" tailscale status --json 2> /dev/null) || true
+        if [ -n "$raw" ]; then
+          tailscale=$(jq -c -f ${tailscaleStatusFilter} <<< "$raw") || tailscale=null
+        fi
+      fi
+      jq -n -c --arg name "$name" --arg owner "$owner" \
+        --argjson running "$running" --argjson reachable "$reachable" --argjson tailscale "$tailscale" \
+        '{name: $name, exists: true, owner: $owner, running: $running, reachable: $reachable}
+         + (if $tailscale == null then {} else {tailscale: $tailscale} end)'
+    }
+
+    cmd_login() {
+      require "$1"
+      local name=$1 state
+      local raw
+      raw=$(run_ssh 10 "$name" tailscale status --json 2> /dev/null) || true
+      state=$(jq -r '.BackendState // ""' <<< "''${raw:-null}") || state=""
+      [ "$state" = Running ] && return 0
+      run_ssh 15 "$name" 'systemctl stop machine-tailscale-login.service 2> /dev/null; systemd-run --quiet --collect --unit=machine-tailscale-login tailscale up --ssh' \
+        || die "could not start a Tailscale login on machine '$name'"
+    }
     cmd_restart() {
       require "$1"
       systemctl restart "$(unit "$1")"
@@ -205,7 +282,9 @@ writeShellApplication {
     command=$1
     shift
     case "$command" in
-      create) [ $# -eq 1 ] || die "usage: machine create <name>"; cmd_create "$1" ;;
+      create) [ $# -ge 1 ] || die "usage: machine create <name> [--owner <login>]"; cmd_create "$@" ;;
+      status) [ $# -ge 1 ] || die "usage: machine status <name> --json"; cmd_status "$@" ;;
+      login) [ $# -eq 1 ] || die "usage: machine login <name>"; cmd_login "$1" ;;
       ssh) [ $# -ge 1 ] || die "usage: machine ssh <name> [command...]"; cmd_ssh "$@" ;;
       restart) [ $# -eq 1 ] || die "usage: machine restart <name>"; cmd_restart "$1" ;;
       resize) [ $# -ge 2 ] || die "usage: machine resize <name> <mem-MB> <vcpu>"; cmd_resize "$@" ;;

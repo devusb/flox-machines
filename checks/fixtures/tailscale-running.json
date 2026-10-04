@@ -1,0 +1,24 @@
+{
+  "Version": "1.90.0",
+  "BackendState": "Running",
+  "AuthURL": "",
+  "Self": {
+    "ID": "nABCDEF123CNTRL",
+    "HostName": "machine-alice",
+    "DNSName": "machine-alice.example.ts.net.",
+    "UserID": 71029411149805651,
+    "Online": true
+  },
+  "User": {
+    "13420024047397978": {
+      "ID": 13420024047397978,
+      "LoginName": "bob@example.com",
+      "DisplayName": "Bob"
+    },
+    "71029411149805651": {
+      "ID": 71029411149805651,
+      "LoginName": "alice@example.com",
+      "DisplayName": "Alice"
+    }
+  }
+}

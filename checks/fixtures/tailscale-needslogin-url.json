@@ -1,0 +1,13 @@
+{
+  "Version": "1.90.0",
+  "BackendState": "NeedsLogin",
+  "AuthURL": "https://login.tailscale.com/a/abc123",
+  "Self": {
+    "ID": "",
+    "HostName": "machine-alice",
+    "DNSName": "",
+    "UserID": 0,
+    "Online": false
+  },
+  "User": null
+}
