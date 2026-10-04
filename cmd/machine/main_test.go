@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -36,6 +37,9 @@ func (s *stubOps) Resize(_ context.Context, name string, mem, vcpu int) error {
 func (s *stubOps) ResizeReset(_ context.Context, name string) error {
 	return s.rec("resize-reset " + name)
 }
+func (s *stubOps) Grow(_ context.Context, name, volume string, size int) error {
+	return s.rec(fmt.Sprintf("grow %s %s %d", name, volume, size))
+}
 func (s *stubOps) Reimage(_ context.Context, name string) error { return s.rec("reimage " + name) }
 func (s *stubOps) Destroy(_ context.Context, name string) error { return s.rec("destroy " + name) }
 func (s *stubOps) List(_ context.Context) (string, error) {
@@ -62,6 +66,7 @@ const usageText = `Usage: machine <command> [args]
   restart <name>                restart a machine
   resize <name> <mem-MB> <vcpu> set a per-machine size and restart
   resize <name> --reset         return to the template's size and restart
+  grow <name> persist|store <MB> grow a machine's disk and restart
   reimage <name>                wipe the machine's Nix store layer and restart
   destroy <name>                stop and delete a machine and its volumes
   list                          list machines
@@ -161,5 +166,18 @@ func TestSSHExecs(t *testing.T) {
 	code, _, _, execd := invoke([]string{"ssh", "a", "cat", "/x"}, &stubOps{})
 	if code != 0 || strings.Join(execd, " ") != "ssh a cat /x" {
 		t.Errorf("code %d, exec %v", code, execd)
+	}
+}
+
+func TestGrow(t *testing.T) {
+	ops := &stubOps{}
+	if code, _, _, _ := invoke([]string{"grow", "a", "store", "4096"}, ops); code != 0 || ops.calls[0] != "grow a store 4096" {
+		t.Errorf("code %d, calls %v", code, ops.calls)
+	}
+	for _, args := range [][]string{{"grow", "a", "store"}, {"grow", "a", "store", "4G"}, {"grow", "a", "store", "1", "2"}} {
+		code, _, errOut, _ := invoke(args, &stubOps{})
+		if code != 1 || errOut != "machine: usage: machine grow <name> persist|store <MB>\n" {
+			t.Errorf("%v: code %d, err %q", args, code, errOut)
+		}
 	}
 }

@@ -56,6 +56,16 @@
         host.succeed("machine restart alice")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
         host.succeed("timeout 60 machine ssh alice cat /home/alice/z | grep -qx before")
+        host.succeed("zfs get -H -o value refreservation tank/machines/alice | grep -qx none")
+
+        host.fail("machine grow alice persist 256")
+        host.succeed("machine grow alice persist 1024")
+        host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
+        host.succeed("machine grow alice store 3072")
+        host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
+        host.succeed("timeout 60 machine ssh alice cat /home/alice/z | grep -qx before")
+        host.succeed("timeout 60 machine ssh alice 'test $(findmnt -n -b -o SIZE /persist) -gt 900000000'")
+        host.succeed("timeout 60 machine ssh alice 'test $(findmnt -n -b -o SIZE -S LABEL=nix-upper) -gt 2900000000'")
 
         host.succeed("machine destroy alice")
         host.fail("zfs list -H -o name | grep -q tank/machines/alice")
