@@ -157,3 +157,15 @@ The template enables `nix.gc` on the 1st and 15th of each month at 03:00, with u
 ## 2026-10-04 one vsock CID for every machine
 
 Every machine gets `microvm.vsock.cid = 3`, which lets cloud-hypervisor pass systemd's readiness notification to the host. Cloud-hypervisor backs vsock with a per-VM unix socket instead of the host's vhost-vsock device, so CIDs do not have to be unique across machines on one host.
+
+## 2026-10-04 Persist zvols are created sparse
+
+`machine create` and the front door create persist zvols with `zfs create -s`, so the size is a ceiling and nothing is reserved in the pool up front. Creation through `zfs allow` was verified with sparse zvols only.
+
+## 2026-10-04 The owner file is readable by the kvm group
+
+A machine's `owner` file has mode 0640 and group `kvm`, so the front door can read the owner of machines an admin created with `machine create --owner`.
+
+## 2026-10-04 A failed create keeps a zvol it cannot remove
+
+When `machine create` fails after making the persist zvol and cannot destroy it, it leaves the machine directory and the zvol in place and says to run `machine destroy <name>`. The front door has no `destroy` permission, so this is what happens when a create through the page fails late.

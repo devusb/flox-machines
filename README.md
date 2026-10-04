@@ -99,6 +99,8 @@ Without `oauthSecretFile`, the front door prints a Tailscale login URL to its jo
 journalctl -u flox-machines-front-door
 ```
 
+The front door runs as the `flox-machines-front-door` user, in the `kvm` group, and calls the same code as `machine` directly. Its grants cover only what creating and claiming need: a polkit rule to start `microvm@machine-*` units, `zfs allow` on `floxMachines.zfs.parentDataset` for creating zvols, write access to `/var/lib/microvms` and the machines' gcroots, and ownership of the admin SSH key.
+
 A person opens `https://machines.<tailnet>.ts.net`, taps Create, then taps the link to add the machine to their tailnet. Their machine is named after their login: `first.last@example.com` becomes `machine-first-last`.
 
 The tailnet policy needs:
