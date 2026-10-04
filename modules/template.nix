@@ -8,7 +8,10 @@
 }:
 
 {
-  imports = [ ./user.nix ];
+  imports = [
+    ./user.nix
+    ./tailscale.nix
+  ];
 
   microvm = {
     hypervisor = "cloud-hypervisor";

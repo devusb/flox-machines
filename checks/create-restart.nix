@@ -55,6 +55,10 @@
         assert host.succeed("timeout 60 machine ssh alice hostname").strip() == "machine-alice"
         host.succeed("timeout 60 machine ssh alice id alice")
         host.succeed("timeout 60 machine ssh alice 'runuser -u alice -- sudo -n true'")
+        host.wait_until_succeeds("timeout 10 machine ssh alice systemctl is-active machine-tailscale.service", timeout=120)
+        host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"OperatorUser\": \"alice\"'")
+        host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
+        host.succeed("timeout 60 machine ssh alice test -f /var/lib/machine/tailscale/tailscaled.state")
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 1")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q nixpkgs")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q home-manager")
@@ -67,6 +71,7 @@
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 2")
         host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
+        host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"OperatorUser\": \"alice\"'")
         host.succeed("machine list | grep -q machine-alice")
         host.succeed("machine create carol")
         host.wait_for_unit("microvm@machine-carol.service")
