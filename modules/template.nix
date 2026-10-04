@@ -69,7 +69,10 @@
       randomizedDelaySec = "6h";
       persistent = true;
     };
-    settings.experimental-features = [ "nix-command" "flakes" ];
+    settings.experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
     registry.nixpkgs.flake = inputs.nixpkgs;
     registry.home-manager.flake = inputs.home-manager;
     settings.nix-path = [ "nixpkgs=flake:nixpkgs" ];

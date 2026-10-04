@@ -57,6 +57,8 @@
 
       formatter.${system} = treefmt.config.build.wrapper;
 
-      packages.${system}.flox-machines = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/flox-machines.nix { };
+      packages.${system}.flox-machines =
+        nixpkgs.legacyPackages.${system}.callPackage ./pkgs/flox-machines.nix
+          { };
     };
 }

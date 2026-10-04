@@ -1,4 +1,8 @@
-{ self, nixpkgs, system }:
+{
+  self,
+  nixpkgs,
+  system,
+}:
 
 let
   args = { inherit self nixpkgs system; };

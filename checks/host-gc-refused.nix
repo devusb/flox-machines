@@ -22,14 +22,20 @@ let
   mentionsGC = messages: builtins.any (m: nixpkgs.lib.hasInfix "machine gc" m) messages;
   cases = {
     plain = !mentionsGC (failed { });
-    automatic = mentionsGC (failed { nix.gc.automatic = true; });
-    min-free = mentionsGC (failed { nix.settings.min-free = 1024; });
+    automatic = mentionsGC (failed {
+      nix.gc.automatic = true;
+    });
+    min-free = mentionsGC (failed {
+      nix.settings.min-free = 1024;
+    });
   };
 in
 {
   host-gc-refused = pkgs.runCommand "host-gc-refused" { } (
     pkgs.lib.concatStrings (
-      pkgs.lib.mapAttrsToList (name: ok: if ok then "" else "echo 'case ${name} failed' >&2; exit 1\n") cases
+      pkgs.lib.mapAttrsToList (
+        name: ok: if ok then "" else "echo 'case ${name} failed' >&2; exit 1\n"
+      ) cases
     )
     + "touch $out\n"
   );
