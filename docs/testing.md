@@ -24,8 +24,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 | `store-reboot` | guest-added store paths and host paths across restart, a base update with `restartOnUpdate = true`, `machine gc`, the guest's own garbage collection, and reimage |
 | `user-units` | an enabled user unit starts after a machine restart with nobody logged in, and the journal keeps the previous boot |
 | `zfs-backend` | the persistent zvol is created, keeps data across a restart, and is destroyed with the machine |
-| `tailscale-status-jq` | the filter that turns `tailscale status --json` into `machine status` fields, on captured outputs |
-| `front-door` | `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names, and the front door service creating a machine in test mode |
+| `front-door` | on the ZFS backend: `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names; the front door service in test mode creating a machine and showing its login state; its user being refused sudo, stopping a machine and destroying a zvol |
 | `front-door-tsnet` | the front door starts its real tsnet node without network and stays up |
 | `network-isolation` | machines reach the host only for DHCP and ping, and cannot reach each other over the bridge |
 | `fork-instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |

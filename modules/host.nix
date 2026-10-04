@@ -10,18 +10,9 @@
 let
   cfg = config.floxMachines;
   keyDir = "/var/lib/flox-machines";
-  machineCli = pkgs.callPackage ../pkgs/machine-cli.nix {
-    reservedNames = builtins.attrNames config.microvm.templates.machine.config.config.users.users;
-    inherit (cfg) storage;
-    inherit (cfg.defaults) persistSize;
-    parentDataset = cfg.zfs.parentDataset;
-    inherit keyDir;
-  };
-  frontDoorPackage = pkgs.callPackage ../pkgs/front-door.nix { };
+  machinesPackage = pkgs.callPackage ../pkgs/flox-machines.nix { };
   frontDoorUser = "flox-machines-front-door";
-  frontDoorMachine = pkgs.writeShellScript "front-door-machine" ''
-    exec /run/wrappers/bin/sudo -n ${lib.getExe' machineCli "machine"} "$@"
-  '';
+  zfsDelegation = "create,mount,volsize,userprop";
 in
 {
   imports = [
@@ -214,7 +205,16 @@ in
       inherit (cfg.bridge) externalInterface;
     };
 
-    environment.systemPackages = [ machineCli ];
+    environment.systemPackages = [ machinesPackage ];
+
+    environment.etc."flox-machines/config.json".text = builtins.toJSON {
+      stateDir = "/var/lib/microvms";
+      inherit (cfg) storage;
+      parentDataset = toString cfg.zfs.parentDataset;
+      inherit (cfg.defaults) persistSize;
+      keyPath = "${keyDir}/id_ed25519";
+      reservedNames = builtins.attrNames config.microvm.templates.machine.config.config.users.users;
+    };
 
     boot.supportedFilesystems = lib.mkIf (cfg.storage == "zfs") [ "zfs" ];
 
@@ -229,44 +229,72 @@ in
     users.users.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable {
       isSystemUser = true;
       group = frontDoorUser;
+      extraGroups = [ "kvm" ];
     };
     users.groups.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable { };
 
-    security.sudo.extraRules = lib.mkIf cfg.frontDoor.enable [
-      {
-        users = [ frontDoorUser ];
-        commands = map (command: {
-          command = "${lib.getExe' machineCli "machine"} ${command} *";
-          options = [ "NOPASSWD" ];
-        }) [ "create" "status" "login" ];
-      }
+    systemd.tmpfiles.rules = lib.mkIf cfg.frontDoor.enable [
+      "d /nix/var/nix/gcroots/microvm 0775 root kvm -"
     ];
+
+    security.polkit.enable = lib.mkIf cfg.frontDoor.enable true;
+    security.polkit.extraConfig = lib.mkIf cfg.frontDoor.enable ''
+      polkit.addRule(function(action, subject) {
+        if (action.id == "org.freedesktop.systemd1.manage-units" &&
+            subject.user == "${frontDoorUser}" &&
+            action.lookup("verb") == "start" &&
+            /^microvm@machine-[a-z0-9-]+\.service$/.test(action.lookup("unit"))) {
+          return polkit.Result.YES;
+        }
+      });
+    '';
+
     systemd.services.flox-machines-front-door = lib.mkIf cfg.frontDoor.enable {
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "flox-machines-key.service" ];
       after = [ "flox-machines-key.service" ];
-      path = [ machineCli "/run/current-system/sw" ];
+      path = [ "/run/current-system/sw" ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
           [
-            (lib.getExe frontDoorPackage)
+            (lib.getExe' machinesPackage "flox-machines-front-door")
             "--hostname"
             cfg.frontDoor.hostname
             "--tags"
             (lib.concatStringsSep "," cfg.frontDoor.tags)
-            "--machine"
-            "${frontDoorMachine}"
             "--state-dir"
             "/var/lib/flox-machines-front-door"
           ]
           ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [ "--secret-file" "%d/secret" ]
           ++ lib.optionals (cfg.frontDoor.testListen != null) [ "--test-listen" cfg.frontDoor.testListen ]
         );
+        ExecStartPre = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs allow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
+        ExecStopPost = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs unallow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
         LoadCredential = lib.optional (cfg.frontDoor.oauthSecretFile != null) "secret:${cfg.frontDoor.oauthSecretFile}";
         User = frontDoorUser;
         Group = frontDoorUser;
+        SupplementaryGroups = [ "kvm" ];
         StateDirectory = "flox-machines-front-door";
         StateDirectoryMode = "0700";
+        ProtectSystem = "strict";
+        ReadWritePaths = [
+          "/var/lib/microvms"
+          "/nix/var/nix/gcroots/microvm"
+        ];
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+          "AF_INET6"
+          "AF_NETLINK"
+        ];
+        DeviceAllow = lib.optionals (cfg.storage == "zfs") [
+          "/dev/zfs rw"
+          "block-zvol rw"
+        ];
         Restart = "on-failure";
         RestartSec = "5s";
       };
@@ -299,7 +327,15 @@ in
           install -d -m 0700 ${keyDir}
           ${lib.getExe' pkgs.openssh "ssh-keygen"} -q -t ed25519 -N "" -C flox-machines -f ${keyDir}/id_ed25519
         fi
-      '';
+      '' + (if cfg.frontDoor.enable then ''
+        chown ${frontDoorUser} ${keyDir}/id_ed25519
+        chgrp kvm ${keyDir}
+        chmod 0750 ${keyDir}
+      '' else ''
+        chown root ${keyDir}/id_ed25519
+        chgrp root ${keyDir}
+        chmod 0700 ${keyDir}
+      '');
     };
   };
 }

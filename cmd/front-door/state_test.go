@@ -4,15 +4,17 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/devusb/flox-machines/internal/machines"
 )
 
-func loadStatus(t *testing.T, name string) Status {
+func loadStatus(t *testing.T, name string) machines.Status {
 	t.Helper()
 	data, err := os.ReadFile("testdata/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var s Status
+	var s machines.Status
 	if err := json.Unmarshal(data, &s); err != nil {
 		t.Fatal(err)
 	}
@@ -41,16 +43,16 @@ func TestPageState(t *testing.T) {
 	const alice = "alice@example.com"
 	cases := []struct {
 		name string
-		s    Status
+		s    machines.Status
 		want PageState
 	}{
-		{"no machine", Status{Name: "alice"}, StateNone},
-		{"no owner recorded", Status{Name: "alice", Exists: true}, StateConflict},
-		{"not reachable", Status{Name: "alice", Exists: true, Owner: alice, Running: true}, StateBooting},
-		{"claimed by someone else", Status{Name: "alice", Exists: true, Owner: alice, Reachable: true,
-			Tailscale: &TailscaleStatus{State: "Running", Owner: "bob@example.com"}}, StateWrongOwner},
-		{"starting tailscale", Status{Name: "alice", Exists: true, Owner: alice, Reachable: true,
-			Tailscale: &TailscaleStatus{State: "Starting"}}, StateBooting},
+		{"no machine", machines.Status{Name: "alice"}, StateNone},
+		{"no owner recorded", machines.Status{Name: "alice", Exists: true}, StateConflict},
+		{"not reachable", machines.Status{Name: "alice", Exists: true, Owner: alice, Running: true}, StateBooting},
+		{"claimed by someone else", machines.Status{Name: "alice", Exists: true, Owner: alice, Reachable: true,
+			Tailscale: &machines.TailscaleStatus{State: "Running", Owner: "bob@example.com"}}, StateWrongOwner},
+		{"starting tailscale", machines.Status{Name: "alice", Exists: true, Owner: alice, Reachable: true,
+			Tailscale: &machines.TailscaleStatus{State: "Starting"}}, StateBooting},
 	}
 	for _, c := range cases {
 		if got := PageStateFor(alice, c.s); got != c.want {

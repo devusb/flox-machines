@@ -1,20 +1,6 @@
 package main
 
-type TailscaleStatus struct {
-	State   string `json:"state"`
-	AuthURL string `json:"authURL"`
-	DNSName string `json:"dnsName"`
-	Owner   string `json:"owner"`
-}
-
-type Status struct {
-	Name      string           `json:"name"`
-	Exists    bool             `json:"exists"`
-	Owner     string           `json:"owner"`
-	Running   bool             `json:"running"`
-	Reachable bool             `json:"reachable"`
-	Tailscale *TailscaleStatus `json:"tailscale"`
-}
+import "github.com/devusb/flox-machines/internal/machines"
 
 type PageState string
 
@@ -28,7 +14,7 @@ const (
 	StateConflict   PageState = "conflict"
 )
 
-func PageStateFor(caller string, s Status) PageState {
+func PageStateFor(caller string, s machines.Status) PageState {
 	switch {
 	case !s.Exists:
 		return StateNone

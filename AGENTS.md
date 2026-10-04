@@ -11,10 +11,10 @@ Flox Machines turns one declared NixOS template into per-person microVMs on a ho
 | `modules/template.nix` | the guest template; imports `user.nix`, `tailscale.nix`, `persist.nix` |
 | `modules/user.nix` | owner account and linger, created at boot from the instance share |
 | `modules/persist.nix` | the `/persist` volume and impermanence paths |
-| `pkgs/machine-cli.nix` | the `machine` CLI, a `writeShellApplication` |
-| `pkgs/tailscale-status.jq` | turns `tailscale status --json` into `machine status` fields |
-| `front-door/` | the front door Go service; unit tests run with `CGO_ENABLED=0 go test ./...` |
-| `pkgs/front-door.nix` | its Nix package; update `vendorHash` when Go dependencies change |
+| `internal/machines/` | machine operations shared by the CLI and the front door: config, names, status, create, destroy and the rest |
+| `cmd/machine/` | the `machine` CLI |
+| `cmd/front-door/` | the front door service |
+| `pkgs/flox-machines.nix` | the Nix package for both binaries; update `vendorHash` when Go dependencies change |
 | `checks/` | NixOS tests; `lean-guest.nix` is shared by them |
 | `docs/testing.md` | what each test covers and what is only checked on a live host |
 
@@ -33,6 +33,12 @@ After a fork change is pushed, run `nix flake update microvm` here.
 
 ## Running tests
 
+Go unit tests run from the repo root and also run in the package build:
+
+```bash
+CGO_ENABLED=0 go test ./...
+```
+
 Tests are x86_64-linux NixOS tests that run machines as nested VMs, so the builder needs KVM. Build on a remote store so outputs stay on the builder:
 
 ```bash
@@ -45,10 +51,9 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> .#checks.x86
 | `.#checks.x86_64-linux.store-reboot` | about 155 s |
 | `.#checks.x86_64-linux.zfs-backend` | about 70 s |
 | `.#checks.x86_64-linux.user-units` | about 65 s |
-| `.#checks.x86_64-linux.front-door` | about 155 s |
+| `.#checks.x86_64-linux.front-door` | about 55 s |
 | `.#checks.x86_64-linux.front-door-tsnet` | about 160 s |
 | `.#checks.x86_64-linux.network-isolation` | about 50 s |
-| `.#checks.x86_64-linux.tailscale-status-jq` | seconds, no VM |
 | `.#checks.x86_64-linux.fork-instances` | about 65 s |
 | `.#checks.x86_64-linux.fork-instances-restart` | about 85 s |
 | `.#checks.x86_64-linux.fork-overlay-store` | about 90 s |

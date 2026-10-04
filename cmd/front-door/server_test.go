@@ -10,23 +10,27 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/devusb/flox-machines/internal/machines"
 )
 
 type fakeCLI struct {
-	status    Status
+	status    machines.Status
 	creates   []string
 	logins    int
 	createErr error
 	loginErr  error
+	createCtx error
 }
 
-func (f *fakeCLI) Status(_ context.Context, name string) (Status, error) {
+func (f *fakeCLI) Status(_ context.Context, name string) (machines.Status, error) {
 	s := f.status
 	s.Name = name
 	return s, nil
 }
 
-func (f *fakeCLI) Create(_ context.Context, name, owner string) error {
+func (f *fakeCLI) Create(ctx context.Context, name, owner string) error {
+	f.createCtx = ctx.Err()
 	f.creates = append(f.creates, name+" "+owner)
 	return f.createErr
 }
@@ -136,7 +140,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateWhenMachineExists(t *testing.T) {
-	cli := &fakeCLI{status: Status{Exists: true, Owner: alice}}
+	cli := &fakeCLI{status: machines.Status{Exists: true, Owner: alice}}
 	h, _ := newTest(cli)
 	fresh, _ := newTest(&fakeCLI{})
 	token := tokenFrom(t, get(fresh, alice).Body.String())
@@ -156,8 +160,8 @@ func TestTokenIsPerCaller(t *testing.T) {
 }
 
 func TestOwnerConflict(t *testing.T) {
-	cli := &fakeCLI{status: Status{Exists: true, Owner: "alice@other.example", Reachable: true,
-		Tailscale: &TailscaleStatus{State: "NeedsLogin"}}}
+	cli := &fakeCLI{status: machines.Status{Exists: true, Owner: "alice@other.example", Reachable: true,
+		Tailscale: &machines.TailscaleStatus{State: "NeedsLogin"}}}
 	h, _ := newTest(cli)
 	w := get(h, alice)
 	if !strings.Contains(strings.ToLower(w.Body.String()), "conflict") {
@@ -173,8 +177,8 @@ func TestOwnerConflict(t *testing.T) {
 }
 
 func TestLoginIsRateLimited(t *testing.T) {
-	cli := &fakeCLI{status: Status{Exists: true, Owner: alice, Reachable: true,
-		Tailscale: &TailscaleStatus{State: "NeedsLogin"}}}
+	cli := &fakeCLI{status: machines.Status{Exists: true, Owner: alice, Reachable: true,
+		Tailscale: &machines.TailscaleStatus{State: "NeedsLogin"}}}
 	h, c := newTest(cli)
 	get(h, alice)
 	get(h, alice)
@@ -189,8 +193,8 @@ func TestLoginIsRateLimited(t *testing.T) {
 }
 
 func TestLoginButton(t *testing.T) {
-	cli := &fakeCLI{status: Status{Exists: true, Owner: alice, Reachable: true,
-		Tailscale: &TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}}}
+	cli := &fakeCLI{status: machines.Status{Exists: true, Owner: alice, Reachable: true,
+		Tailscale: &machines.TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}}}
 	h, _ := newTest(cli)
 	token := tokenFrom(t, get(h, alice).Body.String())
 	if w := post(h, "/login", alice, token); w.Code != http.StatusSeeOther {
@@ -204,18 +208,18 @@ func TestLoginButton(t *testing.T) {
 func TestPages(t *testing.T) {
 	cases := []struct {
 		name   string
-		status Status
+		status machines.Status
 		want   []string
 	}{
-		{"booting", Status{Exists: true, Owner: alice, Running: true}, []string{"Starting your machine", `http-equiv="refresh"`}},
-		{"login", Status{Exists: true, Owner: alice, Reachable: true, Tailscale: &TailscaleStatus{State: "NeedsLogin"}},
+		{"booting", machines.Status{Exists: true, Owner: alice, Running: true}, []string{"Starting your machine", `http-equiv="refresh"`}},
+		{"login", machines.Status{Exists: true, Owner: alice, Reachable: true, Tailscale: &machines.TailscaleStatus{State: "NeedsLogin"}},
 			[]string{"Preparing your Tailscale login", `http-equiv="refresh"`}},
-		{"claim", Status{Exists: true, Owner: alice, Reachable: true,
-			Tailscale: &TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}},
+		{"claim", machines.Status{Exists: true, Owner: alice, Reachable: true,
+			Tailscale: &machines.TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}},
 			[]string{`href="https://login.tailscale.com/a/abc"`, `http-equiv="refresh"`}},
 		{"ready", loadStatus(t, "status-running.json"), []string{"ssh alice@machine-alice.example.ts.net", "sudo tailscale serve"}},
-		{"wrong owner", Status{Exists: true, Owner: alice, Reachable: true,
-			Tailscale: &TailscaleStatus{State: "Running", DNSName: "machine-alice.example.ts.net", Owner: "bob@example.com"}},
+		{"wrong owner", machines.Status{Exists: true, Owner: alice, Reachable: true,
+			Tailscale: &machines.TailscaleStatus{State: "Running", DNSName: "machine-alice.example.ts.net", Owner: "bob@example.com"}},
 			[]string{"bob@example.com"}},
 	}
 	for _, c := range cases {
@@ -247,12 +251,30 @@ func TestCreateFailureIsShown(t *testing.T) {
 }
 
 func TestLoginFailureIsShown(t *testing.T) {
-	cli := &fakeCLI{loginErr: errors.New("could not start a Tailscale login"), status: Status{Exists: true, Owner: alice, Reachable: true,
-		Tailscale: &TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}}}
+	cli := &fakeCLI{loginErr: errors.New("could not start a Tailscale login"), status: machines.Status{Exists: true, Owner: alice, Reachable: true,
+		Tailscale: &machines.TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}}}
 	h, _ := newTest(cli)
 	token := tokenFrom(t, get(h, alice).Body.String())
 	w := post(h, "/login", alice, token)
 	if !strings.Contains(w.Body.String(), "could not start a Tailscale login") {
 		t.Fatalf("got %d, error not shown:\n%s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreateOutlivesRequest(t *testing.T) {
+	cli := &fakeCLI{}
+	h, _ := newTest(cli)
+	token := tokenFrom(t, get(h, alice).Body.String())
+	rctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r := httptest.NewRequest("POST", "/create", strings.NewReader(url.Values{"token": {token}}.Encode())).WithContext(rctx)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set("X-Test-Login", alice)
+	h.ServeHTTP(httptest.NewRecorder(), r)
+	if len(cli.creates) != 1 {
+		t.Fatalf("creates = %v", cli.creates)
+	}
+	if cli.createCtx != nil {
+		t.Errorf("create ran with a cancelled context: %v", cli.createCtx)
 	}
 }

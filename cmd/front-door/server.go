@@ -6,19 +6,18 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"os/exec"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/devusb/flox-machines/internal/machines"
 )
 
 type CLI interface {
-	Status(ctx context.Context, name string) (Status, error)
+	Status(ctx context.Context, name string) (machines.Status, error)
 	Create(ctx context.Context, name, owner string) error
 	Login(ctx context.Context, name string) error
 }
@@ -27,49 +26,14 @@ type Identity interface {
 	Caller(r *http.Request) (login string, ok bool)
 }
 
-type ExecCLI struct {
-	Path string
-}
-
-func (c ExecCLI) run(ctx context.Context, args ...string) ([]byte, error) {
-	out, err := exec.CommandContext(ctx, c.Path, args...).Output()
-	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
-			return nil, fmt.Errorf("machine %s: %s", args[0], strings.TrimSpace(string(ee.Stderr)))
-		}
-		return nil, fmt.Errorf("machine %s: %w", args[0], err)
-	}
-	return out, nil
-}
-
-func (c ExecCLI) Status(ctx context.Context, name string) (Status, error) {
-	out, err := c.run(ctx, "status", name, "--json")
-	if err != nil {
-		return Status{}, err
-	}
-	var s Status
-	if err := json.Unmarshal(out, &s); err != nil {
-		return Status{}, fmt.Errorf("machine status: %w", err)
-	}
-	return s, nil
-}
-
-func (c ExecCLI) Create(ctx context.Context, name, owner string) error {
-	_, err := c.run(ctx, "create", name, "--owner", owner)
-	return err
-}
-
-func (c ExecCLI) Login(ctx context.Context, name string) error {
-	_, err := c.run(ctx, "login", name)
-	return err
-}
-
 //go:embed templates/page.html
 var templateFS embed.FS
 
 var pageTemplate = template.Must(template.ParseFS(templateFS, "templates/page.html"))
 
 const loginInterval = time.Minute
+
+const createTimeout = 5 * time.Minute
 
 type server struct {
 	cli CLI
@@ -86,7 +50,7 @@ type page struct {
 	Login   string
 	Name    string
 	Token   string
-	Status  Status
+	Status  machines.Status
 	Message string
 	Refresh bool
 }
@@ -112,7 +76,7 @@ func (s *server) caller(w http.ResponseWriter, r *http.Request) (login, name str
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return "", "", false
 	}
-	name, err := MachineName(login)
+	name, err := machines.MachineName(login)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		s.render(w, page{State: StateConflict, Login: login, Message: fmt.Sprintf("No machine can be made for %s: %v.", login, err)})
@@ -178,7 +142,9 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	}
 	status, err := s.cli.Status(r.Context(), name)
 	if err == nil && !status.Exists {
-		if err := s.cli.Create(r.Context(), name, login); err != nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), createTimeout)
+		defer cancel()
+		if err := s.cli.Create(ctx, name, login); err != nil {
 			log.Printf("create %s: %v", name, err)
 			s.renderIndex(w, r, login, name, err.Error())
 			return
