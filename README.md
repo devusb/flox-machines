@@ -127,4 +127,6 @@ A host rebuild that changes the template does not restart running machines. Each
 A newer base for this machine is ready. Restart to use it: sudo reboot
 ```
 
+A machine cannot power itself off. `sudo reboot` and `sudo poweroff` inside a machine both end with the host starting it again on the current base a few seconds later. Stopping a machine is a host action: `machine destroy`, or `systemctl stop microvm@machine-<name>`.
+
 `machine list` shows waiting machines as stale. To restart machines on every template change instead, set `floxMachines.restartOnUpdate = true`.
