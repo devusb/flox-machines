@@ -88,6 +88,8 @@
     fi
   '';
 
+  systemd.services.systemd-reboot.unitConfig.SuccessAction = "poweroff-force";
+
   documentation.enable = false;
   system.stateVersion = "26.11";
 }

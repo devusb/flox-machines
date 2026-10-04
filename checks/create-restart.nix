@@ -87,7 +87,7 @@
         assert not notice("alice"), "update notice after taking the new base"
 
         host.succeed("timeout 20 machine ssh bob systemctl reboot || true")
-        host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=300)
+        host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=90)
         host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
         assert host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip() == hostkey, "ssh host key changed across restart"
         host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
