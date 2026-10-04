@@ -161,7 +161,7 @@ Register `front-door` in `checks/default.nix`.
 ### Task 6: Host module and end-to-end test
 
 **Files:**
-- Modify: `modules/host.nix`, `checks/front-door.nix`, `README.md`, `docs/testing.md`
+- Modify: `modules/host.nix`, `checks/front-door.nix`, `checks/front-door-tsnet.nix`, `checks/default.nix`, `README.md`, `docs/testing.md`
 
 **Interfaces:**
 - Produces options per spec: `floxMachines.frontDoor.{enable, hostname, tags, oauthSecretFile}` plus internal `floxMachines.frontDoor.testListen` (`nullOr str`, default `null`, documented as for tests only).
@@ -180,17 +180,19 @@ host.succeed(f"curl -s -o /dev/null -H 'X-Test-Login: bob@example.com' -d token=
 host.succeed("test \"$(cat /var/lib/microvms/machine-bob/owner)\" = bob@example.com")
 ```
 
+- [ ] **Step 1b: Write the real-mode check** `checks/front-door-tsnet.nix`: one host node with `floxMachines.enable = true; floxMachines.frontDoor.enable = true;` and no `testListen`, so the service starts tsnet with no network and no secret. Script: `host.wait_for_unit("flox-machines-front-door.service")`, `host.sleep(30)`, assert `systemctl show -p NRestarts --value flox-machines-front-door` is `0` and the unit is active, and assert the journal for the unit mentions the tsnet startup. No machines are created. Register it in `checks/default.nix`.
+
 - [ ] **Step 2: Run** — fails at `wait_for_unit` (no unit).
 - [ ] **Step 3: Implement** the module options and unit.
-- [ ] **Step 4: Run** `front-door` plus `create-restart` — PASS.
-- [ ] **Step 5: Docs.** README: a "Front door" section with the options, the tailnet policy list from the spec, and the journal login fallback. `docs/testing.md`: a `front-door` row; add "the real front door join, login URLs and claims" to "Not covered by tests".
+- [ ] **Step 4: Run** `front-door`, `front-door-tsnet` and `create-restart` — PASS.
+- [ ] **Step 5: Docs.** Add `front-door` and `front-door-tsnet` to the test table in `AGENTS.md`. README: a "Front door" section with the options, the tailnet policy list from the spec, and the journal login fallback. `docs/testing.md`: a `front-door` row; add "the real front door join, login URLs and claims" to "Not covered by tests".
 - [ ] **Step 6: Commit** — `feat: add front door service to the host module`.
 
 ---
 
 ### Task 7: Live iteration on the Hetzner host
 
-This is a checkpoint with Morgan, not a pass/fail task. The branch is ready for real use, and the flow is tested and iterated on the real host until it is good. Host state may be wiped and redeployed as often as needed.
+This is a checkpoint with Morgan, not a pass/fail task. It runs in a session that has SSH access to the Hetzner host, which may not be the session that ran Tasks 1 to 6; that session starts from `AGENTS.md`, this plan and the spec. The branch is ready for real use, and the flow is tested and iterated on the real host until it is good. Host state may be wiped and redeployed as often as needed.
 
 **Prerequisites from Morgan:** SSH access to the Hetzner host and whether NixOS is installed on it; the tailnet policy entries from the spec's "Tailnet policy" section; an OAuth client secret for `tag:flox-machines`, or approval of the front door's login URL from the journal.
 
