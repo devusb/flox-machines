@@ -4,7 +4,8 @@ Tests are NixOS tests that run machines as nested microVMs. They are x86_64-linu
 
 ```bash
 nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
-  .#checks.x86_64-linux.create-restart .#checks.x86_64-linux.store-reboot
+  .#checks.x86_64-linux.create-restart .#checks.x86_64-linux.store-reboot \
+  .#checks.x86_64-linux.zfs-backend .#checks.x86_64-linux.user-units
 ```
 
 The fork's tests are exposed through this flake and run against a local checkout of the fork:
@@ -21,6 +22,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 |---|---|
 | `create-restart` | `machine` create, ssh, resize, destroy, name checks; owner account; pinned registry; flox and home-manager installed; restart onto a new base with home kept |
 | `store-reboot` | guest-added store paths and host paths across restart, base update, `machine gc` and reimage |
+| `user-units` | an enabled user unit starts after a machine restart with nobody logged in |
 | `forkTests.instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
 | `forkTests.instances-restart` | relink on host switch, no-op switch restarts nothing, template sizing flows to instances without an override |
 | `forkTests.overlay-store` | overlay store: host paths visible, guest paths persist, repair of a deleted host path from a substituter |
