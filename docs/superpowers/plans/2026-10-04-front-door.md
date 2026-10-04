@@ -33,6 +33,9 @@
 
 **Files:**
 - Modify: `pkgs/machine-cli.nix`
+- Create: `pkgs/tailscale-status.jq` (the extraction filter the CLI runs on the guest's `tailscale status --json`)
+- Create: `checks/fixtures/tailscale-running.json`, `checks/fixtures/tailscale-needslogin.json`, `checks/fixtures/tailscale-needslogin-url.json`
+- Create: `checks/tailscale-status-jq.nix` (a plain derivation, no VM)
 - Create: `checks/front-door.nix` (CLI part only in this task)
 - Modify: `checks/default.nix`
 
@@ -41,6 +44,8 @@
 - Produces: `machine status <name> --json` prints `{"name","exists","owner","running","reachable","tailscale":{"state","authURL","dnsName","owner"}}` per the spec. `exists:false` prints only `name` and `exists`. `owner` is `""` when no file. `tailscale` omitted when not reachable. `reachable` uses `timeout 5 machine ssh <name> true`. Tailscale fields come from `tailscale status --json` in the guest: `.BackendState`, `.AuthURL`, `.Self.DNSName` without trailing dot, `.User[(.Self.UserID|tostring)].LoginName`.
 - Produces: `machine login <name>` runs, via ssh, `tailscale status --json` and returns 0 if `BackendState` is `Running`; otherwise `systemd-run --unit=machine-tailscale-login --collect tailscale up --ssh` in the guest (a transient unit, so it outlives the SSH session) and returns 0.
 - Produces: `check_name` also refuses `admin root nobody sshd tailscale microvm nixbld` and any name `getent passwd` knows on the host.
+
+- [ ] **Step 0: Capture fixtures.** `tailscale status --json` on this workstation gives the `Running` shape; spike 1's guest output gives `NeedsLogin` with `AuthURL`; a fresh tailscaled gives `NeedsLogin` without it. Reduce each to `BackendState`, `AuthURL`, `Self.DNSName`, `Self.UserID` and the matching `User` entry, and replace real names and addresses with `example.com` values. Write `checks/tailscale-status-jq.nix`: runs `jq -f pkgs/tailscale-status.jq` on each fixture and compares with expected objects (`{"state":"Running","authURL":"","dnsName":"machine-alice.example.ts.net","owner":"alice@example.com"}`, `{"state":"NeedsLogin","authURL":"https://login.tailscale.com/a/abc123","dnsName":"","owner":""}`, `{"state":"NeedsLogin","authURL":"","dnsName":"","owner":""}`). Build it, see it fail with no filter, write the filter, see it pass.
 
 - [ ] **Step 1: Write the failing test** `checks/front-door.nix`, host as in `user-units.nix` (2 cores, lean guest, `persistSize = 512`, `storeSize = 2048`, `mem = 1024`, `vcpu = 1`). Script:
 
@@ -104,7 +109,7 @@ Register `front-door` in `checks/default.nix`.
 - Produces: `type PageState string` with constants `StateNone, StateBooting, StateLogin, StateClaim, StateReady, StateWrongOwner, StateConflict`.
 - Produces: `func PageStateFor(caller string, s Status) PageState` — `!Exists→None`; `Owner != caller→Conflict`; `Tailscale==nil→Booting`; `NeedsLogin && AuthURL==""→Login`; `NeedsLogin→Claim`; `Running && Tailscale.Owner==caller→Ready`; `Running→WrongOwner`; otherwise `Booting`.
 
-- [ ] **Step 1: Write failing tests** for each branch, including owner `""` → Conflict.
+- [ ] **Step 1: Write failing tests** for each branch, including owner `""` → Conflict. The Running, Claim and Login cases decode `front-door/testdata/status-*.json`, built from Task 1's fixtures run through the jq filter and wrapped in the CLI's outer object.
 - [ ] **Step 2: Run** — fails.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** — PASS.
@@ -162,25 +167,17 @@ Register `front-door` in `checks/default.nix`.
 - Produces options per spec: `floxMachines.frontDoor.{enable, hostname, tags, oauthSecretFile}` plus internal `floxMachines.frontDoor.testListen` (`nullOr str`, default `null`, documented as for tests only).
 - Produces unit `flox-machines-front-door.service`: `wantedBy multi-user.target`, `after network-online.target`, `ExecStart` with the flags, `path` containing the `machine` CLI, `StateDirectory = "flox-machines/front-door"`, `Restart = "on-failure"`. `oauthSecretFile` passed via `LoadCredential` and `--secret-file $CREDENTIALS_DIRECTORY/secret`.
 
-- [ ] **Step 1: Extend the failing test.** Host sets `floxMachines.frontDoor = { enable = true; testListen = "127.0.0.1:8080"; };`. Append:
+- [ ] **Step 1: Extend the failing test** with a smoke check only; handler behavior is covered by Task 4's unit tests. Host sets `floxMachines.frontDoor = { enable = true; testListen = "127.0.0.1:8080"; };`. Append:
 
 ```python
 host.wait_for_unit("flox-machines-front-door.service")
 host.wait_for_open_port(8080)
 host.succeed("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ | grep -qx 403")
-page = host.succeed("curl -s -H 'X-Test-Login: bob@example.com' http://127.0.0.1:8080/")
-assert "Create" in page
 import re
+page = host.succeed("curl -s -H 'X-Test-Login: bob@example.com' http://127.0.0.1:8080/")
 token = re.search(r'name="token" value="([0-9a-f]+)"', page).group(1)
-host.succeed("curl -s -o /dev/null -w '%{http_code}' -H 'X-Test-Login: bob@example.com' -d token=bad http://127.0.0.1:8080/create | grep -qx 403")
 host.succeed(f"curl -s -o /dev/null -H 'X-Test-Login: bob@example.com' -d token={token} http://127.0.0.1:8080/create")
 host.succeed("test \"$(cat /var/lib/microvms/machine-bob/owner)\" = bob@example.com")
-host.succeed(f"curl -s -o /dev/null -H 'X-Test-Login: bob@example.com' -d token={token} http://127.0.0.1:8080/create")
-host.succeed("test $(ls -d /var/lib/microvms/machine-bob* | wc -l) = 1")
-host.wait_until_succeeds("curl -s -H 'X-Test-Login: bob@example.com' http://127.0.0.1:8080/ | grep -q 'Tailscale login'", timeout=300)
-page = host.succeed("curl -s -H 'X-Test-Login: mallory@example.com' http://127.0.0.1:8080/")
-assert "Create" in page
-host.succeed("curl -s -H 'X-Test-Login: alice@other.example' http://127.0.0.1:8080/ | grep -qi conflict")
 ```
 
 - [ ] **Step 2: Run** — fails at `wait_for_unit` (no unit).
@@ -188,3 +185,17 @@ host.succeed("curl -s -H 'X-Test-Login: alice@other.example' http://127.0.0.1:80
 - [ ] **Step 4: Run** `front-door` plus `create-restart` — PASS.
 - [ ] **Step 5: Docs.** README: a "Front door" section with the options, the tailnet policy list from the spec, and the journal login fallback. `docs/testing.md`: a `front-door` row; add "the real front door join, login URLs and claims" to "Not covered by tests".
 - [ ] **Step 6: Commit** — `feat: add front door service to the host module`.
+
+---
+
+### Task 7: Live iteration on the Hetzner host
+
+This is a checkpoint with Morgan, not a pass/fail task. The branch is ready for real use, and the flow is tested and iterated on the real host until it is good. Host state may be wiped and redeployed as often as needed.
+
+**Prerequisites from Morgan:** SSH access to the Hetzner host and whether NixOS is installed on it; the tailnet policy entries from the spec's "Tailnet policy" section; an OAuth client secret for `tag:flox-machines`, or approval of the front door's login URL from the journal.
+
+- [ ] **Step 1:** Add a host configuration for the box to a deploy flake that consumes this branch, with `floxMachines.enable`, `storage = "zfs"`, `bridge.externalInterface` set to the public interface, and `frontDoor.enable`. Deploy with `nixos-rebuild switch --target-host`, or with nixos-anywhere if the box is not yet NixOS.
+- [ ] **Step 2:** Confirm the front door joins the tailnet as `machines` with `tag:flox-machines`, and serves HTTPS.
+- [ ] **Step 3:** Morgan opens the page, creates a machine, taps the claim link, and reaches the ready page. Check `ssh <name>@<tailnet name>` and a direct (not DERP) connection.
+- [ ] **Step 4:** Iterate on whatever is rough: wording, timing, states, errors. Each change gets a unit test where it touches handler logic, then redeploys. Wipe and recreate machines and front door state as needed.
+- [ ] **Step 5:** Commit what changed, one commit per fix.
