@@ -253,7 +253,7 @@ in
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
       wants = [ "flox-machines-key.service" ];
-      after = [ "flox-machines-key.service" ];
+      after = [ "flox-machines-key.service" ] ++ lib.optional (cfg.storage == "zfs") "zfs-import.target";
       path = [ "/run/current-system/sw" ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
