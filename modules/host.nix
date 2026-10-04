@@ -168,6 +168,8 @@ in
       };
     };
 
+    networking.useNetworkd = lib.mkDefault true;
+
     systemd.network = {
       enable = true;
       wait-online.ignoredInterfaces = [ cfg.bridge.name ];
