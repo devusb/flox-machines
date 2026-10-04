@@ -171,6 +171,8 @@ in
       };
     };
 
+    networking.useNetworkd = lib.mkDefault true;
+
     systemd.network = {
       enable = true;
       wait-online.ignoredInterfaces = [ cfg.bridge.name ];
@@ -273,7 +275,6 @@ in
     systemd.services.flox-machines-base-marker = {
       description = "Tell machines which base the template currently builds";
       wantedBy = [ "microvms.target" ];
-      after = [ "install-microvm-template-machine.service" ];
       restartTriggers = [ config.microvm.templates.machine.config.config.system.build.toplevel ];
       serviceConfig = {
         Type = "oneshot";
@@ -282,7 +283,7 @@ in
       script = ''
         for d in /var/lib/microvms/machine-*; do
           [ -d "$d/instance" ] || continue
-          readlink "$d/current/share/microvm/system" > "$d/instance/system.new" && mv -f "$d/instance/system.new" "$d/instance/system" || true
+          echo ${config.microvm.templates.machine.config.config.system.build.toplevel} > "$d/instance/system.new" && mv -f "$d/instance/system.new" "$d/instance/system" || true
         done
       '';
     };

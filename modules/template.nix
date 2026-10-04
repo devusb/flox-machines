@@ -20,6 +20,7 @@
     vcpu = floxMachines.defaults.vcpu;
     mem = floxMachines.defaults.mem;
     socket = "control.socket";
+    vsock.cid = 3;
     instance.enable = true;
     interfaces = [
       {
@@ -71,7 +72,7 @@
     settings.experimental-features = [ "nix-command" "flakes" ];
     registry.nixpkgs.flake = inputs.nixpkgs;
     registry.home-manager.flake = inputs.home-manager;
-    nixPath = [ "nixpkgs=flake:nixpkgs" ];
+    settings.nix-path = [ "nixpkgs=flake:nixpkgs" ];
   };
 
   environment.systemPackages = [
