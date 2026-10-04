@@ -6,13 +6,10 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,43 +24,6 @@ type CLI interface {
 
 type Identity interface {
 	Caller(r *http.Request) (login string, ok bool)
-}
-
-type ExecCLI struct {
-	Path string
-}
-
-func (c ExecCLI) run(ctx context.Context, args ...string) ([]byte, error) {
-	out, err := exec.CommandContext(ctx, c.Path, args...).Output()
-	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && len(ee.Stderr) > 0 {
-			return nil, fmt.Errorf("machine %s: %s", args[0], strings.TrimSpace(string(ee.Stderr)))
-		}
-		return nil, fmt.Errorf("machine %s: %w", args[0], err)
-	}
-	return out, nil
-}
-
-func (c ExecCLI) Status(ctx context.Context, name string) (machines.Status, error) {
-	out, err := c.run(ctx, "status", name, "--json")
-	if err != nil {
-		return machines.Status{}, err
-	}
-	var s machines.Status
-	if err := json.Unmarshal(out, &s); err != nil {
-		return machines.Status{}, fmt.Errorf("machine status: %w", err)
-	}
-	return s, nil
-}
-
-func (c ExecCLI) Create(ctx context.Context, name, owner string) error {
-	_, err := c.run(ctx, "create", name, "--owner", owner)
-	return err
-}
-
-func (c ExecCLI) Login(ctx context.Context, name string) error {
-	_, err := c.run(ctx, "login", name)
-	return err
 }
 
 //go:embed templates/page.html

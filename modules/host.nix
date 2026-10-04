@@ -12,9 +12,7 @@ let
   keyDir = "/var/lib/flox-machines";
   machinesPackage = pkgs.callPackage ../pkgs/flox-machines.nix { };
   frontDoorUser = "flox-machines-front-door";
-  frontDoorMachine = pkgs.writeShellScript "front-door-machine" ''
-    exec /run/wrappers/bin/sudo -n ${lib.getExe' machinesPackage "machine"} "$@"
-  '';
+  zfsDelegation = "create,mount,volsize,userprop";
 in
 {
   imports = [
@@ -231,23 +229,32 @@ in
     users.users.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable {
       isSystemUser = true;
       group = frontDoorUser;
+      extraGroups = [ "kvm" ];
     };
     users.groups.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable { };
 
-    security.sudo.extraRules = lib.mkIf cfg.frontDoor.enable [
-      {
-        users = [ frontDoorUser ];
-        commands = map (command: {
-          command = "${lib.getExe' machinesPackage "machine"} ${command} *";
-          options = [ "NOPASSWD" ];
-        }) [ "create" "status" "login" ];
-      }
+    systemd.tmpfiles.rules = lib.mkIf cfg.frontDoor.enable [
+      "d /nix/var/nix/gcroots/microvm 0775 root kvm -"
     ];
+
+    security.polkit.enable = lib.mkIf cfg.frontDoor.enable true;
+    security.polkit.extraConfig = lib.mkIf cfg.frontDoor.enable ''
+      polkit.addRule(function(action, subject) {
+        if (action.id == "org.freedesktop.systemd1.manage-units" &&
+            subject.user == "${frontDoorUser}" &&
+            action.lookup("verb") == "start" &&
+            /^microvm@machine-[a-z0-9-]+\.service$/.test(action.lookup("unit"))) {
+          return polkit.Result.YES;
+        }
+      });
+    '';
+
     systemd.services.flox-machines-front-door = lib.mkIf cfg.frontDoor.enable {
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "flox-machines-key.service" ];
       after = [ "flox-machines-key.service" ];
-      path = [ machinesPackage "/run/current-system/sw" ];
+      path = [ "/run/current-system/sw" ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
           [
@@ -256,19 +263,38 @@ in
             cfg.frontDoor.hostname
             "--tags"
             (lib.concatStringsSep "," cfg.frontDoor.tags)
-            "--machine"
-            "${frontDoorMachine}"
             "--state-dir"
             "/var/lib/flox-machines-front-door"
           ]
           ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [ "--secret-file" "%d/secret" ]
           ++ lib.optionals (cfg.frontDoor.testListen != null) [ "--test-listen" cfg.frontDoor.testListen ]
         );
+        ExecStartPre = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs allow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
+        ExecStopPost = lib.optional (cfg.storage == "zfs") "+/run/booted-system/sw/bin/zfs unallow ${frontDoorUser} ${zfsDelegation} ${toString cfg.zfs.parentDataset}";
         LoadCredential = lib.optional (cfg.frontDoor.oauthSecretFile != null) "secret:${cfg.frontDoor.oauthSecretFile}";
         User = frontDoorUser;
         Group = frontDoorUser;
+        SupplementaryGroups = [ "kvm" ];
         StateDirectory = "flox-machines-front-door";
         StateDirectoryMode = "0700";
+        ProtectSystem = "strict";
+        ReadWritePaths = [
+          "/var/lib/microvms"
+          "/nix/var/nix/gcroots/microvm"
+        ];
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+          "AF_INET6"
+          "AF_NETLINK"
+        ];
+        DeviceAllow = lib.optionals (cfg.storage == "zfs") [
+          "/dev/zfs rw"
+          "block-zvol rw"
+        ];
         Restart = "on-failure";
         RestartSec = "5s";
       };
@@ -301,7 +327,15 @@ in
           install -d -m 0700 ${keyDir}
           ${lib.getExe' pkgs.openssh "ssh-keygen"} -q -t ed25519 -N "" -C flox-machines -f ${keyDir}/id_ed25519
         fi
-      '';
+      '' + (if cfg.frontDoor.enable then ''
+        chown ${frontDoorUser} ${keyDir}/id_ed25519
+        chgrp kvm ${keyDir}
+        chmod 0750 ${keyDir}
+      '' else ''
+        chown root ${keyDir}/id_ed25519
+        chgrp root ${keyDir}
+        chmod 0700 ${keyDir}
+      '');
     };
   };
 }
