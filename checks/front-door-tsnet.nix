@@ -20,7 +20,7 @@
       };
 
       testScript = /* python */ ''
-        host.wait_for_unit("flox-machines-front-door.service")
+        host.wait_for_unit("flox-machines-front-door.service", timeout=60)
         host.sleep(30)
         host.succeed("systemctl is-active flox-machines-front-door.service")
         host.succeed("test \"$(systemctl show -p NRestarts --value flox-machines-front-door.service)\" = 0")

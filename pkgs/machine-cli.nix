@@ -243,6 +243,7 @@ writeShellApplication {
       require "$1"
       local name=$1 d
       d=$(dir "$name")
+      systemctl kill --signal=SIGKILL "$(unit "$name")" 2> /dev/null || true
       systemctl stop "$(unit "$name")"
       rm -rf "$d"
       rm -f "/nix/var/nix/gcroots/microvm/$(instance "$name")" "/nix/var/nix/gcroots/microvm/booted-$(instance "$name")"

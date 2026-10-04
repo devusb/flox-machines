@@ -79,7 +79,7 @@
         host.succeed("test -L /var/lib/microvms/machine-alice/current")
         assert started("alice") == ta, "a host switch restarted alice"
         assert base("alice") == "1", "alice changed base without a restart"
-        assert notice("alice"), "no update notice after a host switch"
+        host.wait_until_succeeds("timeout 60 machine ssh alice 'bash -ic true' 2>&1 | grep -q 'newer base'", timeout=30)
 
         host.succeed("machine restart alice")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
@@ -87,14 +87,14 @@
         assert not notice("alice"), "update notice after taking the new base"
 
         host.succeed("timeout 20 machine ssh bob systemctl reboot || true")
-        host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=300)
+        host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=90)
         host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
         assert host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip() == hostkey, "ssh host key changed across restart"
         host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
         host.succeed("machine list | grep -q machine-alice")
         host.succeed("machine create carol")
         host.wait_for_unit("microvm@machine-carol.service")
-        host.succeed("machine destroy carol")
+        host.succeed("timeout 30 machine destroy carol")
         host.fail("systemctl is-active microvm@machine-carol.service")
         host.succeed("test ! -e /var/lib/microvms/machine-carol")
         host.fail("machine create 'Bad Name'")

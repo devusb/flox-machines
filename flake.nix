@@ -26,20 +26,19 @@
         machineTemplate = import ./modules/template.nix;
       };
 
-      checks.${system} = import ./checks {
-        inherit self nixpkgs system;
-      };
+      checks.${system} =
+        import ./checks { inherit self nixpkgs system; }
+        // nixpkgs.lib.mapAttrs' (name: nixpkgs.lib.nameValuePair "fork-${name}") (
+          let
+            args = {
+              self = inputs.microvm;
+              inherit nixpkgs system;
+            };
+          in
+          import "${inputs.microvm}/checks/instances.nix" args
+          // import "${inputs.microvm}/checks/overlay-store.nix" args
+        );
 
       packages.${system}.front-door = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/front-door.nix { };
-
-      legacyPackages.${system}.forkTests =
-        let
-          args = {
-            self = inputs.microvm;
-            inherit nixpkgs system;
-          };
-        in
-        import "${inputs.microvm}/checks/instances.nix" args
-        // import "${inputs.microvm}/checks/overlay-store.nix" args;
     };
 }

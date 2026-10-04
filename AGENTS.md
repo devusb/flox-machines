@@ -6,7 +6,7 @@ Flox Machines turns one declared NixOS template into per-person microVMs on a ho
 
 | Path | Contents |
 |---|---|
-| `flake.nix` | inputs, `nixosModules.floxMachines`, `nixosModules.machineTemplate`, `checks`, `legacyPackages.x86_64-linux.forkTests` |
+| `flake.nix` | inputs, `nixosModules.floxMachines`, `nixosModules.machineTemplate`, `packages.x86_64-linux.front-door`, `checks` including the fork's tests as `fork-*` |
 | `modules/host.nix` | the `floxMachines` host module: template registration, bridge, DHCP, NAT, admin key, ZFS |
 | `modules/template.nix` | the guest template; imports `user.nix`, `tailscale.nix`, `persist.nix` |
 | `modules/user.nix` | owner account and linger, created at boot from the instance share |
@@ -49,11 +49,11 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> .#checks.x86
 | `.#checks.x86_64-linux.front-door-tsnet` | about 160 s |
 | `.#checks.x86_64-linux.network-isolation` | about 50 s |
 | `.#checks.x86_64-linux.tailscale-status-jq` | seconds, no VM |
-| `.#legacyPackages.x86_64-linux.forkTests.instances` | about 65 s |
-| `.#legacyPackages.x86_64-linux.forkTests.instances-restart` | about 85 s |
-| `.#legacyPackages.x86_64-linux.forkTests.overlay-store` | about 90 s |
+| `.#checks.x86_64-linux.fork-instances` | about 65 s |
+| `.#checks.x86_64-linux.fork-instances-restart` | about 85 s |
+| `.#checks.x86_64-linux.fork-overlay-store` | about 90 s |
 
-Fork tests are exposed here so they evaluate quickly; building them through the fork's own `checks` evaluates its whole hypervisor matrix first. Add `--override-input microvm git+file://...` to run them against an unpushed fork checkout.
+The fork's own tests are imported into this flake's `checks` as `fork-*`, so CI for this repo covers them and they evaluate quickly; building them through the fork's own `checks` evaluates its whole hypervisor matrix first. Add `--override-input microvm git+file://...` to run any check against an unpushed fork checkout.
 
 Run only the tests that cover a change. Several installables in one `nix build` run in parallel, up to the builder's `max-jobs`; when one fails, the others in the same invocation are cut off, so rerun them before trusting them.
 
