@@ -153,3 +153,7 @@ cloud-hypervisor handles a guest reboot itself and keeps its configuration, so a
 ## 2026-10-04 Machines collect garbage twice a month
 
 The template enables `nix.gc` on the 1st and 15th of each month at 03:00, with up to six hours of random delay and catch-up after downtime. It removes unreferenced paths only; old profile and home-manager generations are kept so people can roll back. The machine's store is a `local-overlay` store, so collection only removes paths from the machine's upper layer, never from the host's store.
+
+## 2026-10-04 one vsock CID for every machine
+
+Every machine gets `microvm.vsock.cid = 3`, which lets cloud-hypervisor pass systemd's readiness notification to the host. Cloud-hypervisor backs vsock with a per-VM unix socket instead of the host's vhost-vsock device, so CIDs do not have to be unique across machines on one host.
