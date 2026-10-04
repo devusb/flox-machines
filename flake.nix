@@ -13,12 +13,28 @@
     };
     flox.url = "github:flox/flox/latest";
     impermanence.url = "github:nix-community/impermanence";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     { self, nixpkgs, ... }@inputs:
     let
       system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
+      treefmt = inputs.treefmt-nix.lib.evalModule pkgs {
+        projectRootFile = "flake.nix";
+        programs.nixfmt.enable = true;
+        programs.gofmt.enable = true;
+        programs.yamlfmt.enable = true;
+        settings.excludes = [
+          ".gitignore"
+          "flake.lock"
+          "go.sum"
+        ];
+      };
     in
     {
       nixosModules = {
@@ -38,6 +54,8 @@
           import "${inputs.microvm}/checks/instances.nix" args
           // import "${inputs.microvm}/checks/overlay-store.nix" args
         );
+
+      formatter.${system} = treefmt.config.build.wrapper;
 
       packages.${system}.flox-machines = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/flox-machines.nix { };
     };
