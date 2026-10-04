@@ -30,8 +30,8 @@ Flox Machines gives each person a persistent NixOS microVM built from one templa
 | `floxMachines.template` | the bundled template | guest NixOS module every machine runs |
 | `floxMachines.defaults.mem` | `4096` | memory in MB for machines without an override |
 | `floxMachines.defaults.vcpu` | `2` | vCPUs for machines without an override |
-| `floxMachines.defaults.persistSize` | `20480` | persistent volume in MB, holding `/home` and machine state |
-| `floxMachines.defaults.storeSize` | `65536` | Nix store upper layer in MB |
+| `floxMachines.defaults.persistSize` | `102400` | persistent volume in MB, holding `/home` and machine state |
+| `floxMachines.defaults.storeSize` | `204800` | Nix store upper layer in MB |
 | `floxMachines.storage` | `"image"` | `"image"` or `"zfs"` |
 | `floxMachines.zfs.parentDataset` | `null` | dataset for machine zvols when storage is `zfs` |
 | `floxMachines.bridge.externalInterface` | `null` | interface machines are NATed through |
@@ -45,6 +45,7 @@ Flox Machines gives each person a persistent NixOS microVM built from one templa
 | `machine restart <name>` | restart the machine |
 | `machine resize <name> <mem-MB> <vcpu>` | set a per-machine size and restart |
 | `machine resize <name> --reset` | return to the template size and restart |
+| `machine grow <name> persist\|store <MB>` | grow a machine's persistent volume or Nix store layer and restart it; volumes cannot shrink |
 | `machine reimage <name>` | wipe the machine's Nix store layer and Nix state, then restart; home is kept, but home-manager generations and `nix profile` installs are removed, so the person runs `home-manager switch` again |
 | `machine destroy <name>` | stop the machine and delete it with its volumes |
 | `machine list` | list machines and whether they run the current base |
@@ -65,6 +66,8 @@ Anything written elsewhere, including system changes made with sudo, resets when
 Each machine collects garbage in its own Nix store on the 1st and 15th of the month. Only unreferenced paths in the machine's layer are removed; old generations stay, and the host's store is never touched.
 
 With `storage = "image"`, the persistent volume is `persist.img` under `/var/lib/microvms/machine-<name>/`. With `storage = "zfs"`, it is the zvol `<parentDataset>/<name>`, auto-snapshotted. Snapshot a machine with `zfs snapshot <parentDataset>/<name>@<label>`; roll back with the machine stopped.
+
+Volume sizes are ceilings. Image files and zvols are sparse, so the host only uses space a machine has written, and that space is not returned when the machine deletes files. `persistSize` and `storeSize` apply when a volume is created; changing them leaves existing machines alone. `machine grow` enlarges one machine's volume, and `machine reimage` recreates the store layer at the current `storeSize`.
 
 ## Tests
 

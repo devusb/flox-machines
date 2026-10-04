@@ -49,7 +49,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> .#checks.x86
 |---|---|
 | `.#checks.x86_64-linux.create-restart` | about 360 s |
 | `.#checks.x86_64-linux.store-reboot` | about 155 s |
-| `.#checks.x86_64-linux.zfs-backend` | about 70 s |
+| `.#checks.x86_64-linux.zfs-backend` | about 110 s |
 | `.#checks.x86_64-linux.user-units` | about 65 s |
 | `.#checks.x86_64-linux.front-door` | about 55 s |
 | `.#checks.x86_64-linux.front-door-tsnet` | about 160 s |

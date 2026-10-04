@@ -70,12 +70,12 @@ in
       };
       persistSize = lib.mkOption {
         type = lib.types.int;
-        default = 20480;
+        default = 102400;
         description = "Persistent volume size in MB. Holds /home and machine state.";
       };
       storeSize = lib.mkOption {
         type = lib.types.int;
-        default = 65536;
+        default = 204800;
         description = "Upper Nix store volume size in MB.";
       };
     };

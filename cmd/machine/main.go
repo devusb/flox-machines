@@ -22,6 +22,7 @@ type Ops interface {
 	Restart(ctx context.Context, name string) error
 	Resize(ctx context.Context, name string, memMB, vcpu int) error
 	ResizeReset(ctx context.Context, name string) error
+	Grow(ctx context.Context, name, volume string, sizeMB int) error
 	Reimage(ctx context.Context, name string) error
 	Destroy(ctx context.Context, name string) error
 	List(ctx context.Context) (string, error)
@@ -38,6 +39,7 @@ const usage = `Usage: machine <command> [args]
   restart <name>                restart a machine
   resize <name> <mem-MB> <vcpu> set a per-machine size and restart
   resize <name> --reset         return to the template's size and restart
+  grow <name> persist|store <MB> grow a machine's disk and restart
   reimage <name>                wipe the machine's Nix store layer and restart
   destroy <name>                stop and delete a machine and its volumes
   list                          list machines
@@ -138,6 +140,12 @@ func dispatch(ctx context.Context, command string, args []string, ops Ops, execF
 		mem, _ := strconv.Atoi(args[1])
 		vcpu, _ := strconv.Atoi(args[2])
 		return ops.Resize(ctx, args[0], mem, vcpu)
+	case "grow":
+		if len(args) != 3 || !number.MatchString(args[2]) {
+			return usageError("machine grow <name> persist|store <MB>")
+		}
+		size, _ := strconv.Atoi(args[2])
+		return ops.Grow(ctx, args[0], args[1], size)
 	case "list":
 		out, err := ops.List(ctx)
 		if err != nil {
