@@ -34,7 +34,7 @@ The service handles HTTP and identity only. Every host operation goes through th
 ## Service
 
 - Go, using `tailscale.com/tsnet`. One binary, `flox-machines-front-door`.
-- Joins the tailnet as its own tagged node, with hostname `floxMachines.frontDoor.hostname` (default `machines`) and tags `floxMachines.frontDoor.tags` (default `[ "tag:flox-machines" ]`). It authenticates with an OAuth client secret read from `floxMachines.frontDoor.oauthSecretFile`; a plain auth key in that file also works. tsnet state lives in `/var/lib/flox-machines/front-door`.
+- Joins the tailnet as its own tagged node, with hostname `floxMachines.frontDoor.hostname` (default `machines`) and tags `floxMachines.frontDoor.tags` (default `[ "tag:flox-machines" ]`). It authenticates with an OAuth client secret read from `floxMachines.frontDoor.oauthSecretFile`, passed to tsnet as `ClientSecret` along with the tags. tsnet mints a node auth key from it. Keys minted from an OAuth secret are ephemeral unless the secret carries `?ephemeral=false`, so the service appends `?ephemeral=false&preauthorized=true` to a `tskey-client-` secret that has no attributes. A plain auth key in that file also works. With no file, tsnet prints a login URL to the service's log, and so to the journal, until an admin opens it. tsnet state lives in `/var/lib/flox-machines/front-door`.
 - Listens with TLS on port 443 when the tailnet offers certificates for the node, and on plain HTTP port 80 otherwise.
 - For each request, calls the tsnet local client's WhoIs with the remote address. Requests whose caller cannot be identified, and requests from tagged nodes, get 403. Only people create machines.
 - Runs as root, because the CLI does.
@@ -121,13 +121,13 @@ The guest reaches the Tailscale control server through the host's NAT, so `floxM
 | `floxMachines.frontDoor.enable` | `false` | Run the front door |
 | `floxMachines.frontDoor.hostname` | `"machines"` | tsnet node name |
 | `floxMachines.frontDoor.tags` | `[ "tag:flox-machines" ]` | Tags the front door node advertises |
-| `floxMachines.frontDoor.oauthSecretFile` | `null` | OAuth client secret, or an auth key, for the front door's join. Without it, the login URL is printed to the journal |
+| `floxMachines.frontDoor.oauthSecretFile` | `null` | OAuth client secret, or an auth key, for the front door's join. Without it, tsnet prints a login URL to the journal |
 
 The service is a systemd unit `flox-machines-front-door` with `machine` on its `PATH`.
 
 ## Testing
 
-- Go unit tests: name cleaning including `first.last`, `+` tags, leading digits and reserved names; owner match and conflict; state selection from status JSON including the login, claim and wrong-owner states, handlers against a fake CLI, form token check.
+- Go unit tests: OAuth secret attributes are added when missing and kept when present; name cleaning including `first.last`, `+` tags, leading digits and reserved names; owner match and conflict; state selection from status JSON including the login, claim and wrong-owner states, handlers against a fake CLI, form token check.
 - NixOS test `front-door`: the service runs with a test-only flag that listens on localhost over plain HTTP and takes the caller's login from an `X-Test-Login` header instead of WhoIs. The flag is never set by the module. The test creates a machine for `alice@example.com`, checks a second create does not make another machine, checks a header-less request gets 403, and checks the page reaches the login state: `tailscale.state` is `NeedsLogin` with no URL, because the test network cannot reach Tailscale. It also checks `machine login` returns without error.
 - The real login URL and claim are checked on a live host.
 
