@@ -24,9 +24,9 @@ person's browser ──tailnet──► front door (tsnet node "machines")
                                    │  name = clean(localpart(login))
                                    ▼
                               machine CLI (root)
-                                   │  create / status --json
+                                   │  create / status --json / login
                                    ▼
-                     machine-<name> microVM ──► tailscaled (NeedsLogin → AuthURL)
+                     machine-<name> microVM ──► tailscaled (NeedsLogin, AuthURL after machine login)
 ```
 
 The service handles HTTP and identity only. Every host operation goes through the `machine` CLI.
@@ -46,8 +46,9 @@ The service handles HTTP and identity only. Every host operation goes through th
 |---|---|
 | `GET /` | Runs `machine status <name> --json` and renders one of the states below |
 | `POST /create` | Runs `machine create <name>` if the caller has no machine, then redirects to `/`. If a machine exists, redirects to `/` without creating |
+| `POST /login` | Runs `machine login <name>` and redirects to `/` |
 
-`POST /create` requires a same-origin form token so a cross-site request cannot create a machine for a visitor.
+`POST /create` and `POST /login` require a same-origin form token so a cross-site request cannot act for a visitor.
 
 ### Page states
 
@@ -55,8 +56,10 @@ The service handles HTTP and identity only. Every host operation goes through th
 |---|---|---|
 | none | status reports no machine | Create button |
 | booting | machine exists, not yet reachable or tailscaled not yet reporting | "Starting your machine", page refreshes every 3 s |
-| claim | Tailscale state `NeedsLogin` with a login URL | Link to the login URL, page refreshes every 3 s |
-| ready | Tailscale state `Running` | Tailnet name, `ssh <name>@<tailnet name>`, and a note that `sudo tailscale serve` publishes services |
+| login | Tailscale state `NeedsLogin` with no login URL | The service runs `machine login <name>` once per minute at most, shows "Preparing your Tailscale login" and refreshes every 3 s. A button posts to `/login` to ask again |
+| claim | Tailscale state `NeedsLogin` with a login URL | Link to the login URL, a button that posts to `/login` for a fresh link, and a refresh every 3 s |
+| ready | Tailscale state `Running` and the node owner is the caller | Tailnet name, `ssh <name>@<tailnet name>`, and a note that `sudo tailscale serve` publishes services |
+| wrong owner | Tailscale state `Running` and the node owner is a different login | A warning that the machine joined the tailnet as that login, with the ready details |
 | error | CLI failure | The CLI's error message |
 
 ## CLI: `machine status`
@@ -72,7 +75,8 @@ The service handles HTTP and identity only. Every host operation goes through th
   "tailscale": {
     "state": "NeedsLogin",
     "authURL": "https://login.tailscale.com/a/...",
-    "dnsName": ""
+    "dnsName": "",
+    "owner": ""
   }
 }
 ```
@@ -80,11 +84,17 @@ The service handles HTTP and identity only. Every host operation goes through th
 - `exists` is false when there is no instance directory; every other field is then omitted.
 - `running` is whether `microvm@machine-<name>` is active.
 - `reachable` is whether `machine ssh` succeeded within 5 seconds.
-- `tailscale` comes from `tailscale status --json` in the guest: `BackendState`, `AuthURL` and `Self.DNSName` with the trailing dot removed. It is omitted when the machine is not reachable.
+- `tailscale` comes from `tailscale status --json` in the guest: `BackendState`, `AuthURL`, `Self.DNSName` with the trailing dot removed, and `owner`, the `LoginName` of `User[Self.UserID]`. It is omitted when the machine is not reachable.
+
+## CLI: `machine login`
+
+`machine login <name>` starts `tailscale up --ssh` in the background in the guest, detached from the SSH session, so tailscaled requests a login URL from the control server. It returns immediately. If the node is already logged in, it does nothing. It covers the first claim and any later re-login, such as after node key expiry.
 
 ## Guest: claim
 
-The template gains a service `machine-tailscale-login`, ordered after `tailscaled.service` and `tailscaled-set.service`. If `tailscale status --json` reports `NeedsLogin`, it starts `tailscale up --ssh` in the background so tailscaled produces a login URL, and exits. It does nothing when the node is already logged in. The node's state survives restarts, so a claimed machine never asks again.
+The guest needs no login service. tailscaled starts with no key and waits in `NeedsLogin`. The front door asks for a login URL with `machine login` when the owner opens the page. The node's state survives restarts, so a claimed machine stays claimed until its key expires or it is logged out, and then the page offers a new link the same way.
+
+The guest reaches the Tailscale control server through the host's NAT, so `floxMachines.bridge.externalInterface` must be set. The tailnet does not require device approval, so a confirmed login adds the machine directly. Tailscale SSH to the machine depends on the tailnet policy allowing members to SSH to their own devices as their own user.
 
 ## Host module options
 
@@ -98,6 +108,6 @@ The service is a systemd unit `flox-machines-front-door` with `machine` on its `
 
 ## Testing
 
-- Go unit tests: name cleaning, state selection from status JSON, handlers against a fake CLI, form token check.
-- NixOS test `front-door`: the service runs with a test-only flag that listens on localhost over plain HTTP and takes the caller's login from an `X-Test-Login` header instead of WhoIs. The flag is never set by the module. The test creates a machine for `alice@example.com`, checks a second create does not make another machine, checks a header-less request gets 403, and checks the page reaches the claim state's offline equivalent: `tailscale.state` is `NeedsLogin` with no URL, because the test network cannot reach Tailscale.
+- Go unit tests: name cleaning, state selection from status JSON including the login, claim and wrong-owner states, handlers against a fake CLI, form token check.
+- NixOS test `front-door`: the service runs with a test-only flag that listens on localhost over plain HTTP and takes the caller's login from an `X-Test-Login` header instead of WhoIs. The flag is never set by the module. The test creates a machine for `alice@example.com`, checks a second create does not make another machine, checks a header-less request gets 403, and checks the page reaches the login state: `tailscale.state` is `NeedsLogin` with no URL, because the test network cannot reach Tailscale. It also checks `machine login` returns without error.
 - The real login URL and claim are checked on a live host.
