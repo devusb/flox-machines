@@ -11,7 +11,7 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    flox.url = "github:flox/flox";
+    flox.url = "github:flox/flox/latest";
     impermanence.url = "github:nix-community/impermanence";
   };
 
