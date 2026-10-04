@@ -9,6 +9,7 @@
 
 {
   imports = [
+    inputs.flox.nixosModules.flox
     ./user.nix
     ./tailscale.nix
     ./persist.nix
@@ -77,7 +78,6 @@
     pkgs.git
     pkgs.tmux
     pkgs.home-manager
-    inputs.flox.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   environment.etc."machine/base-version".text = floxMachines.baseVersion;

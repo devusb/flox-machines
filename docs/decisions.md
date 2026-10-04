@@ -92,7 +92,7 @@ Every machine has `/etc/machine/base-version`, set from `floxMachines.baseVersio
 
 ## 2026-10-03 flox from its own flake
 
-flox is not packaged in nixpkgs, so the template takes it from the `github:flox/flox` flake's default package. The flake is not made to follow the platform's nixpkgs, so its binary cache still applies.
+Both the host and the machine template import `nixosModules.flox` from `github:flox/flox/latest`. The module installs the Flox CLI and adds cache.flox.dev and its signing key to `nix.settings`. The flake is not made to follow the platform's nixpkgs, so its packages come from cache.flox.dev.
 
 ## 2026-10-03 Admin SSH resolves machines by MAC
 

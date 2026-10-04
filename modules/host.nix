@@ -24,7 +24,10 @@ let
   '';
 in
 {
-  imports = [ inputs.microvm.nixosModules.host ];
+  imports = [
+    inputs.microvm.nixosModules.host
+    inputs.flox.nixosModules.flox
+  ];
 
   options.floxMachines = {
     enable = lib.mkEnableOption "Flox Machines";
