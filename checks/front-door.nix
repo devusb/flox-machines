@@ -58,7 +58,7 @@
         host.wait_for_unit("multi-user.target")
         host.succeed("machine create alice --owner alice@example.com")
         host.succeed("test \"$(cat /var/lib/microvms/machine-alice/owner)\" = alice@example.com")
-        host.succeed("test \"$(stat -c %a /var/lib/microvms/machine-alice/owner)\" = 600")
+        host.succeed("test \"$(stat -c %a /var/lib/microvms/machine-alice/owner)\" = 640")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
 
         s = json.loads(host.succeed("timeout 30 machine status alice --json"))

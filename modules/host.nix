@@ -10,17 +10,10 @@
 let
   cfg = config.floxMachines;
   keyDir = "/var/lib/flox-machines";
-  machineCli = pkgs.callPackage ../pkgs/machine-cli.nix {
-    reservedNames = builtins.attrNames config.microvm.templates.machine.config.config.users.users;
-    inherit (cfg) storage;
-    inherit (cfg.defaults) persistSize;
-    parentDataset = cfg.zfs.parentDataset;
-    inherit keyDir;
-  };
-  frontDoorPackage = pkgs.callPackage ../pkgs/flox-machines.nix { };
+  machinesPackage = pkgs.callPackage ../pkgs/flox-machines.nix { };
   frontDoorUser = "flox-machines-front-door";
   frontDoorMachine = pkgs.writeShellScript "front-door-machine" ''
-    exec /run/wrappers/bin/sudo -n ${lib.getExe' machineCli "machine"} "$@"
+    exec /run/wrappers/bin/sudo -n ${lib.getExe' machinesPackage "machine"} "$@"
   '';
 in
 {
@@ -214,7 +207,16 @@ in
       inherit (cfg.bridge) externalInterface;
     };
 
-    environment.systemPackages = [ machineCli ];
+    environment.systemPackages = [ machinesPackage ];
+
+    environment.etc."flox-machines/config.json".text = builtins.toJSON {
+      stateDir = "/var/lib/microvms";
+      inherit (cfg) storage;
+      parentDataset = toString cfg.zfs.parentDataset;
+      inherit (cfg.defaults) persistSize;
+      keyPath = "${keyDir}/id_ed25519";
+      reservedNames = builtins.attrNames config.microvm.templates.machine.config.config.users.users;
+    };
 
     boot.supportedFilesystems = lib.mkIf (cfg.storage == "zfs") [ "zfs" ];
 
@@ -236,7 +238,7 @@ in
       {
         users = [ frontDoorUser ];
         commands = map (command: {
-          command = "${lib.getExe' machineCli "machine"} ${command} *";
+          command = "${lib.getExe' machinesPackage "machine"} ${command} *";
           options = [ "NOPASSWD" ];
         }) [ "create" "status" "login" ];
       }
@@ -245,11 +247,11 @@ in
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
       after = [ "flox-machines-key.service" ];
-      path = [ machineCli "/run/current-system/sw" ];
+      path = [ machinesPackage "/run/current-system/sw" ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
           [
-            (lib.getExe' frontDoorPackage "flox-machines-front-door")
+            (lib.getExe' machinesPackage "flox-machines-front-door")
             "--hostname"
             cfg.frontDoor.hostname
             "--tags"
