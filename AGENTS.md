@@ -54,6 +54,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> .#checks.x86
 | `.#checks.x86_64-linux.front-door` | about 55 s |
 | `.#checks.x86_64-linux.front-door-tsnet` | about 160 s |
 | `.#checks.x86_64-linux.network-isolation` | about 50 s |
+| `.#checks.x86_64-linux.host-gc-refused` | seconds, no VM |
 | `.#checks.x86_64-linux.fork-instances` | about 65 s |
 | `.#checks.x86_64-linux.fork-instances-restart` | about 85 s |
 | `.#checks.x86_64-linux.fork-overlay-store` | about 90 s |

@@ -27,6 +27,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 | `front-door` | on the ZFS backend: `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names; the front door service in test mode creating a machine and showing its login state; its user being refused sudo, stopping a machine and destroying a zvol |
 | `front-door-tsnet` | the front door starts its real tsnet node without network and stays up |
 | `network-isolation` | machines reach the host only for DHCP and ping, and cannot reach each other over the bridge |
+| `host-gc-refused` | evaluating the host with `nix.gc.automatic` or `nix.settings.min-free` fails with the `machine gc` message, and a plain host does not |
 | `fork-instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
 | `fork-instances-restart` | relink on host switch, no-op switch restarts nothing, template sizing flows to instances without an override |
 | `fork-overlay-store` | overlay store: host paths visible, guest paths persist, repair of a deleted host path from a substituter |
