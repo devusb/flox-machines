@@ -110,7 +110,7 @@ A host rebuild regenerates the template runner and refreshes `current` for every
 ### Restart, re-image, resize, backup, offboard
 
 - **Restart.** `machine restart <name>` or a systemd restart of the instance service.
-- **Re-image.** Stop, delete the upper store and `/nix/var` volumes, start. Home and state remain.
+- **Re-image.** Stop, delete the upper store and `/nix/var` volumes, start. Home and state remain. Home-manager generations, `nix profile` installs and anything else in the guest store are removed, and user units that home-manager linked into home stay broken until the person runs `home-manager switch` again.
 - **Resize.** The template sets the default memory and vCPUs. Changing them in the host configuration resizes every instance that has no override, at the restart the change triggers. `machine resize` writes an override into `instance.env` for one instance, and `machine resize --reset` removes it.
 - **Backup.** ZFS snapshots of home and state zvols. Restore is a zvol rollback or clone.
 - **Offboard.** `machine destroy <name>`: stop, remove the instance directory, snapshot and schedule the zvols for deletion after a retention period, delete the device from the tailnet through the API.

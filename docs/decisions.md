@@ -109,3 +109,7 @@ flox is not packaged in nixpkgs, so the template takes it from the `github:flox/
 ## 2026-10-03 Daemon-only store access is set by environment
 
 Guest clients reach the overlay store through `NIX_REMOTE=daemon` in the session and service environment. Setting `store = daemon` in `nix.conf` would also apply to the guest's nix-daemon and point it at itself.
+
+## 2026-10-03 User services start after the store repair
+
+Each boot, a separate `machine-linger` service enables linger for the owner after `microvm-verify-store` finishes, so the owner's user units start only once missing store paths have been restored. Account creation stays in its own service before SSH, so logging in does not wait for repair downloads. Linger is not persisted, because `/var/lib/systemd` is on the guest tmpfs.

@@ -45,7 +45,7 @@ Flox Machines gives each person a persistent NixOS microVM built from one templa
 | `machine restart <name>` | restart the machine |
 | `machine resize <name> <mem-MB> <vcpu>` | set a per-machine size and restart |
 | `machine resize <name> --reset` | return to the template size and restart |
-| `machine reimage <name>` | wipe the machine's Nix store layer and restart; home is kept |
+| `machine reimage <name>` | wipe the machine's Nix store layer and Nix state, then restart; home is kept, but home-manager generations and `nix profile` installs are removed, so the person runs `home-manager switch` again |
 | `machine destroy <name>` | stop the machine and delete it with its volumes |
 | `machine list` | list machines and whether they run the current base |
 | `machine gc` | stop all machines, collect garbage on the host, start them again |

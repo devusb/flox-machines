@@ -10,14 +10,12 @@ in
     description = "Create the machine owner's account from the instance directory";
     wantedBy = [ "multi-user.target" ];
     before = [ "systemd-user-sessions.service" "sshd.service" ];
-    after = [ "systemd-logind.service" ];
-    wants = [ "systemd-logind.service" ];
     unitConfig.RequiresMountsFor = [ instanceDir "/home" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = [ pkgs.shadow pkgs.coreutils pkgs.getent config.systemd.package ];
+    path = [ pkgs.shadow pkgs.coreutils pkgs.getent ];
     script = ''
       if [ -f ${instanceDir}/authorized_keys ]; then
         install -d -m 0700 /root/.ssh
@@ -30,6 +28,23 @@ in
         useradd --uid 1000 --user-group --home-dir "/home/$name" --shell /run/current-system/sw/bin/bash "$name"
       fi
       install -d -o "$name" -g "$name" -m 0700 "/home/$name"
+    '';
+  };
+
+  systemd.services.machine-linger = {
+    description = "Start the machine owner's user services";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "machine-user.service" "microvm-verify-store.service" "systemd-logind.service" ];
+    requires = [ "machine-user.service" ];
+    wants = [ "systemd-logind.service" ];
+    unitConfig.ConditionPathExists = "${instanceDir}/user";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ config.systemd.package ];
+    script = ''
+      read -r name < ${instanceDir}/user
       loginctl enable-linger "$name"
     '';
   };
