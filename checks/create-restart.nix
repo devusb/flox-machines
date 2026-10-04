@@ -79,7 +79,7 @@
         host.succeed("test -L /var/lib/microvms/machine-alice/current")
         assert started("alice") == ta, "a host switch restarted alice"
         assert base("alice") == "1", "alice changed base without a restart"
-        assert notice("alice"), "no update notice after a host switch"
+        host.wait_until_succeeds("timeout 60 machine ssh alice 'bash -ic true' 2>&1 | grep -q 'newer base'", timeout=30)
 
         host.succeed("machine restart alice")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)

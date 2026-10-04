@@ -279,7 +279,7 @@ in
       script = ''
         for d in /var/lib/microvms/machine-*; do
           [ -d "$d/instance" ] || continue
-          readlink "$d/current/share/microvm/system" > "$d/instance/system" || true
+          readlink "$d/current/share/microvm/system" > "$d/instance/system.new" && mv -f "$d/instance/system.new" "$d/instance/system" || true
         done
       '';
     };
