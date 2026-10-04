@@ -38,10 +38,6 @@ Base updates are applied by rebuilding the host, which restarts every instance w
 
 Each guest is claimed by its owner through a login link, so the only policy rule needed is the self autogroup. The alternative of host-minted tagged auth keys with one tag per person was rejected because it requires a service with write access to the whole tailnet policy and makes admin access rules per person. Admin access to guests is from the host over vsock SSH instead of over the tailnet.
 
-## 2026-10-03 Home is a block volume, not a share
-
-Home is a ZFS zvol attached as a block device. A virtiofs share from a host dataset was considered because it would let the host see the person's files, and rejected because git on large repositories wants block performance and nothing on the host needs to read home.
-
 ## 2026-10-03 Credentials are self-service
 
 People log into GitHub, model providers and other services from inside the guest and the tokens live in home. Vault or 1Password injection was considered and rejected for v1 as friction. Anything in home is readable by any agent the person runs, and this is stated to users.
@@ -76,7 +72,7 @@ Flox is in the guest system closure and nothing else. A starter default environm
 
 ## 2026-10-03 Person files are opaque to the host
 
-Home and state volumes are block devices attached only to their own guest, never mounted on the host. A host admin has no path to cd into anyone's home. Encrypting the volumes inside the guest was considered: with the key stored on the host it only obfuscates against host root, and with a passphrase the person must re-enter it after every restart. Deferred as optional. Host root is accepted as able to read everything with effort.
+Persistent volumes are block devices attached only to their own guest, never mounted on the host. A host admin has no path to cd into anyone's home. Encrypting the volumes inside the guest was considered: with the key stored on the host it only obfuscates against host root, and with a passphrase the person must re-enter it after every restart. Deferred as optional. Host root is accepted as able to read everything with effort.
 
 ## 2026-10-03 Develop against NixOS tests
 
@@ -84,7 +80,7 @@ The host module and the fork's instances feature are built test-first with the N
 
 ## 2026-10-03 Image and zvol storage backends
 
-Instance volumes are image files or zvols behind one option. Image files are what microvm.nix uses natively and what tests and workstations run; zvols are for the production host. Spike 1 ran on image files.
+Each machine's persistent volume is an image file or a zvol behind one option. Image files are what microvm.nix uses natively and what tests and workstations run; zvols are for the production host.
 
 ## 2026-10-03 Admin access to machines is SSH over the host bridge
 
@@ -120,4 +116,8 @@ The owner's account is in `wheel`, and `wheel` needs no password for sudo. Decid
 
 ## 2026-10-03 Tailscale in the template
 
-The template enables `services.tailscale`. tailscaled's state directory is bind-mounted from `/var/lib/machine/tailscale` on the persistent state volume, so the node identity and `tailscale serve` configuration survive restarts and base updates. Tailscale SSH is turned on through `services.tailscale.extraSetFlags`. No operator is set, so the owner runs `tailscale serve` with sudo. Joining the tailnet is the claim flow and is not automated yet.
+The template enables `services.tailscale`. tailscaled's state directory `/var/lib/tailscale` is kept on the persistent volume, so the node identity and `tailscale serve` configuration survive restarts and base updates. Tailscale SSH is turned on through `services.tailscale.extraSetFlags`. No operator is set, so the owner runs `tailscale serve` with sudo. Joining the tailnet is the claim flow and is not automated yet.
+
+## 2026-10-04 One persistent volume with impermanence
+
+Each machine has a single persistent volume at `/persist`, and the impermanence module binds the paths worth keeping from it: `/home` and `/var/lib/tailscale`. The SSH host key is kept at `/persist/etc/ssh` through `services.openssh.hostKeys`. With ZFS this is one zvol per machine, so one snapshot captures everything that matters about a machine. The Nix store layers stay separate image files, because they are rebuildable and would fill snapshots with churn. Separate home and state zvols, more zvols for the store layers, and a dataset per machine were considered. The persistent volume is marked `neededForBoot`, as impermanence requires.

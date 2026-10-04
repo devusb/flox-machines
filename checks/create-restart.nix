@@ -33,7 +33,7 @@
           defaults = {
             mem = 1024;
             vcpu = 1;
-            homeSize = 512;
+            persistSize = 512;
             storeSize = 4096;
           };
         };
@@ -56,19 +56,21 @@
         host.succeed("timeout 60 machine ssh alice id alice")
         host.succeed("timeout 60 machine ssh alice 'runuser -u alice -- sudo -n true'")
         host.wait_until_succeeds("timeout 10 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'", timeout=120)
-        host.succeed("timeout 60 machine ssh alice test -f /var/lib/machine/tailscale/tailscaled.state")
+        host.succeed("timeout 60 machine ssh alice test -f /persist/var/lib/tailscale/tailscaled.state")
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 1")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q nixpkgs")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q home-manager")
         host.succeed("timeout 60 machine ssh alice command -v home-manager")
         host.succeed("timeout 60 machine ssh alice command -v flox")
         host.succeed("timeout 60 machine ssh alice 'runuser -u alice -- sh -c \"echo keep > /home/alice/keep\"'")
+        hostkey = host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip()
         ta = host.succeed("systemctl show -p ActiveEnterTimestampMonotonic microvm@machine-alice.service").strip()
         host.succeed("/run/booted-system/specialisation/v2/bin/switch-to-configuration test")
         host.wait_until_succeeds(f"[ \"$(systemctl show -p ActiveEnterTimestampMonotonic microvm@machine-alice.service)\" != '{ta}' ]", timeout=300)
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 2")
         host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
+        assert host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip() == hostkey, "ssh host key changed across restart"
         host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
         host.succeed("machine list | grep -q machine-alice")
         host.succeed("machine create carol")

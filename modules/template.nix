@@ -11,6 +11,7 @@
   imports = [
     ./user.nix
     ./tailscale.nix
+    ./persist.nix
   ];
 
   microvm = {
@@ -33,20 +34,6 @@
         source = "/nix/store";
         mountPoint = "/nix/.ro-store";
         socket = "ro-store.sock";
-      }
-    ];
-    volumes = [
-      {
-        image = "home.img";
-        mountPoint = "/home";
-        size = floxMachines.defaults.homeSize;
-        label = "home";
-      }
-      {
-        image = "state.img";
-        mountPoint = "/var/lib/machine";
-        size = 1024;
-        label = "state";
       }
     ];
     overlayStore = {

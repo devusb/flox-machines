@@ -30,10 +30,10 @@ Flox Machines gives each person a persistent NixOS microVM built from one templa
 | `floxMachines.template` | the bundled template | guest NixOS module every machine runs |
 | `floxMachines.defaults.mem` | `4096` | memory in MB for machines without an override |
 | `floxMachines.defaults.vcpu` | `2` | vCPUs for machines without an override |
-| `floxMachines.defaults.homeSize` | `20480` | home volume in MB |
+| `floxMachines.defaults.persistSize` | `20480` | persistent volume in MB, holding `/home` and machine state |
 | `floxMachines.defaults.storeSize` | `65536` | Nix store upper layer in MB |
 | `floxMachines.storage` | `"image"` | `"image"` or `"zfs"` |
-| `floxMachines.zfs.parentDataset` | `null` | dataset for zvols when storage is `zfs` |
+| `floxMachines.zfs.parentDataset` | `null` | dataset for machine zvols when storage is `zfs` |
 | `floxMachines.bridge.externalInterface` | `null` | interface machines are NATed through |
 
 ## Commands
@@ -58,7 +58,9 @@ Each machine's Nix store layers its own persistent upper layer over the host's s
 
 ## Storage backends
 
-With `storage = "image"`, volumes are files under `/var/lib/microvms/machine-<name>/`. With `storage = "zfs"`, home and state volumes are zvols named `<parentDataset>/<name>-home` and `<name>-state`.
+Each machine has one persistent volume mounted at `/persist`. The guest root is tmpfs, and `/home`, `/var/lib/tailscale` and the SSH host key live on `/persist` through the impermanence module. The Nix store layers are separate image files that `machine reimage` deletes.
+
+With `storage = "image"`, the persistent volume is `persist.img` under `/var/lib/microvms/machine-<name>/`. With `storage = "zfs"`, it is the zvol `<parentDataset>/<name>`, auto-snapshotted. Snapshot a machine with `zfs snapshot <parentDataset>/<name>@<label>`; roll back with the machine stopped.
 
 ## Tests
 

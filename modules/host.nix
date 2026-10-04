@@ -52,10 +52,10 @@ in
         default = 2;
         description = "vCPUs for machines without an override.";
       };
-      homeSize = lib.mkOption {
+      persistSize = lib.mkOption {
         type = lib.types.int;
         default = 20480;
-        description = "Home volume size in MB.";
+        description = "Persistent volume size in MB. Holds /home and machine state.";
       };
       storeSize = lib.mkOption {
         type = lib.types.int;
@@ -137,7 +137,7 @@ in
     environment.systemPackages = [
       (pkgs.callPackage ../pkgs/machine-cli.nix {
         inherit (cfg) storage;
-        inherit (cfg.defaults) homeSize;
+        inherit (cfg.defaults) persistSize;
         parentDataset = cfg.zfs.parentDataset;
         keyDir = keyDir;
       })

@@ -57,7 +57,7 @@ Storage backends are `image`, where each volume is a file under the instance dir
 - The host is a tagged Tailscale node reachable by admins only. Admins reach any guest from the host over vsock SSH. Members of the admin group see every instance in the front door.
 - The front door service, behind Tailscale serve.
 - The instance CLI, a wrapper over the forked `microvm` command, used by the front door and by admins.
-- Scheduled ZFS snapshots of all instance zvols, replicated to a Hetzner storage box.
+- Scheduled ZFS snapshots of each machine's persistent zvol, replicated to a Hetzner storage box.
 - Host rebuilds are applied by an admin or CI in a known window. The host does not auto-upgrade.
 
 ## Template: the guest base
@@ -65,7 +65,8 @@ Storage backends are `image`, where each volume is a file under the instance dir
 One NixOS configuration, `machine`, exported from the flake and registered as a microvm template on the host. Everything per person comes from the instance directory at boot. The template contains:
 
 - **Identity.** The `microvm.instance` guest module mounts the instance directory, sets the hostname, and loads systemd credentials from it. The person's username and SSH keys come from the instance file.
-- **Access.** tailscaled with Tailscale SSH. No sshd on the network. The guest's Tailscale state lives on the state volume so the node identity survives reboots.
+- **Access.** tailscaled with Tailscale SSH. No sshd on the network. The guest's Tailscale state lives on the persistent volume so the node identity survives reboots.
+- **Persistence.** The root is tmpfs. One persistent volume is mounted at `/persist`, and the impermanence module binds `/home` and `/var/lib/tailscale` from it. The SSH host key is kept at `/persist/etc/ssh`. Everything else on the root is rebuilt each boot.
 - **Account.** One user named after the person, no password, with passwordless sudo through `wheel`. Root is also reachable from the host over the bridge with the admin key.
 - **Sessions.** tmux and agent-deck. The login shell attaches to the person's session. mosh for the phone.
 - **Software.** flox is in the system closure. Environments belong to the person. The base creates none and the shell integration is flox's own.
@@ -90,15 +91,14 @@ One NixOS configuration, `machine`, exported from the flake and registered as a 
     user            username
     keys            ssh public keys
     credentials/    files loaded as systemd credentials
-  home.img          symlink to the home zvol
-  state.img         symlink to the state zvol
+  persist.img       the persistent volume, or a symlink to its zvol
 ```
 
 ### Create
 
 1. The person opens the front door, which identifies them from Tailscale headers. They tap create.
 2. The front door runs `machine create <localpart>`.
-3. The CLI creates the home and state zvols, writes the instance directory and `instance.env`, links `current` to the template runner, and starts `microvm@<name>`.
+3. The CLI creates the persistent volume, writes the instance directory and `instance.env`, links `current` to the template runner, and starts `microvm@<name>`.
 4. The guest boots, creates the user, and starts tailscaled with no auth key. The guest does not join the tailnet on its own. tailscaled generates its login URL, the guest writes it to the state volume, and the front door shows it. The person taps it and logs in to Tailscale in their own browser. The front door never sees or handles their credentials. The node is now owned by the person.
 5. The front door polls the guest until it is authenticated, then disables key expiry for that device through the admin API.
 6. The front door shows the SSH command and the phone instructions. If the node ever needs re-authentication, the same URL path reappears.
@@ -112,7 +112,7 @@ A host rebuild regenerates the template runner and refreshes `current` for every
 - **Restart.** `machine restart <name>` or a systemd restart of the instance service.
 - **Re-image.** Stop, delete the upper store and `/nix/var` volumes, start. Home and state remain. Home-manager generations, `nix profile` installs and anything else in the guest store are removed, and user units that home-manager linked into home stay broken until the person runs `home-manager switch` again.
 - **Resize.** The template sets the default memory and vCPUs. Changing them in the host configuration resizes every instance that has no override, at the restart the change triggers. `machine resize` writes an override into `instance.env` for one instance, and `machine resize --reset` removes it.
-- **Backup.** ZFS snapshots of home and state zvols. Restore is a zvol rollback or clone.
+- **Backup.** ZFS snapshots of the persistent zvol. Restore is a rollback or clone with the machine stopped.
 - **Offboard.** `machine destroy <name>`: stop, remove the instance directory, snapshot and schedule the zvols for deletion after a retention period, delete the device from the tailnet through the API.
 
 ## Identity and network
@@ -145,7 +145,7 @@ The host store mostly grows. Host garbage collection is a manual operation with 
 - Inside a guest, the agent runs as the person. Anything in the person's home, including credentials, is readable by any agent they run there. That is the written contract.
 - A compromised agent can reach what the guest's owner can reach on the tailnet, plus the internet. Check mode on sensitive destinations is the control.
 - Guests cannot reach the host's nix-daemon or any host service except the hypervisor's virtio devices and vsock SSH, which only the host initiates. Guests can read the host's store and `/nix/var`, including the host's profiles and GC roots, read-only.
-- Home and state are zvols attached only to their own guest. The host never mounts them and has no filesystem path into a person's files. Between guests, the hypervisor is the boundary.
+- The persistent volume is attached only to its own guest. The host never mounts them and has no filesystem path into a person's files. Between guests, the hypervisor is the boundary.
 - Admins are root on the host and could mount any zvol. This is stated to users. LUKS inside the guest with the key on the state volume is an optional later addition that raises the effort for a host admin without changing that line.
 
 ## Front door
@@ -186,4 +186,4 @@ The module and the fork's instances feature are developed against NixOS tests. T
 ## Open questions
 
 - Memory per instance by default, and the host size that implies for expected concurrent use.
-- The retention period for offboarded zvols.
+- The retention period for offboarded machines' zvols.

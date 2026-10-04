@@ -12,6 +12,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flox.url = "github:flox/flox";
+    impermanence.url = "github:nix-community/impermanence";
   };
 
   outputs =

@@ -37,7 +37,7 @@
           defaults = {
             mem = 1024;
             vcpu = 1;
-            homeSize = 512;
+            persistSize = 512;
             storeSize = 2048;
           };
         };
@@ -47,17 +47,22 @@
         host.wait_for_unit("multi-user.target")
         host.succeed("zpool create tank /dev/vdb && zfs create tank/machines")
         host.succeed("machine create alice")
-        host.succeed("zfs list -H -o name | grep -qx tank/machines/alice-home")
-        host.succeed("zfs list -H -o name | grep -qx tank/machines/alice-state")
-        host.succeed("test -L /var/lib/microvms/machine-alice/home.img")
+        host.succeed("zfs list -H -o name | grep -qx tank/machines/alice")
+        host.succeed("test -L /var/lib/microvms/machine-alice/persist.img")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
-        host.succeed("timeout 60 machine ssh alice findmnt -n -o SOURCE /home | grep -q /dev/vd")
-        host.succeed("timeout 60 machine ssh alice 'echo z > /home/z'")
-        host.succeed("machine restart alice")
+        host.succeed("timeout 60 machine ssh alice findmnt -n -o SOURCE /persist | grep -q /dev/vd")
+        host.succeed("timeout 60 machine ssh alice 'echo before > /home/alice/z && sync'")
+
+        host.succeed("zfs snapshot tank/machines/alice@test")
+        host.succeed("timeout 60 machine ssh alice 'echo after > /home/alice/z && sync'")
+        host.succeed("systemctl stop microvm@machine-alice.service")
+        host.succeed("zfs rollback tank/machines/alice@test")
+        host.succeed("systemctl start microvm@machine-alice.service")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
-        host.succeed("timeout 60 machine ssh alice cat /home/z | grep -qx z")
+        host.succeed("timeout 60 machine ssh alice cat /home/alice/z | grep -qx before")
+
         host.succeed("machine destroy alice")
-        host.fail("zfs list -H -o name | grep -q tank/machines/alice-")
+        host.fail("zfs list -H -o name | grep -q tank/machines/alice")
       '';
 
       meta.timeout = 600;

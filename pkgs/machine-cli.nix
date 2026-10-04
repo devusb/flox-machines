@@ -11,7 +11,7 @@
   zfs,
   storage,
   parentDataset,
-  homeSize,
+  persistSize,
   keyDir,
   stateDir ? "/var/lib/microvms",
 }:
@@ -33,7 +33,7 @@ writeShellApplication {
     STATE_DIR=${stateDir}
     STORAGE=${storage}
     PARENT=${lib.escapeShellArg (toString parentDataset)}
-    HOME_SIZE=${toString homeSize}
+    PERSIST_SIZE=${toString persistSize}
     KEY=${keyDir}/id_ed25519
 
     usage() {
@@ -79,16 +79,16 @@ writeShellApplication {
     }
 
     zvol() {
-      echo "$PARENT/$1-$2"
+      echo "$PARENT/$1"
     }
 
     create_zvol() {
-      local name=$1 volume=$2 size=$3 label=$4
-      zfs create -o com.sun:auto-snapshot=true -V "''${size}M" "$(zvol "$name" "$volume")"
+      local name=$1 size=$2
+      zfs create -o com.sun:auto-snapshot=true -V "''${size}M" "$(zvol "$name")"
       udevadm settle
-      mkfs.ext4 -q -L "$label" "/dev/zvol/$(zvol "$name" "$volume")"
-      chown microvm:kvm "$(readlink -f "/dev/zvol/$(zvol "$name" "$volume")")"
-      ln -s "/dev/zvol/$(zvol "$name" "$volume")" "$(dir "$name")/$volume.img"
+      mkfs.ext4 -q -L persist "/dev/zvol/$(zvol "$name")"
+      chown microvm:kvm "$(readlink -f "/dev/zvol/$(zvol "$name")")"
+      ln -s "/dev/zvol/$(zvol "$name")" "$(dir "$name")/persist.img"
     }
 
     cmd_create() {
@@ -105,8 +105,7 @@ writeShellApplication {
       cp "$KEY.pub" "$d/instance/authorized_keys"
 
       if [ "$STORAGE" = zfs ]; then
-        create_zvol "$name" home "$HOME_SIZE" home
-        create_zvol "$name" state 1024 state
+        create_zvol "$name" "$PERSIST_SIZE"
       fi
 
       chown -R microvm:kvm "$d"
@@ -168,15 +167,13 @@ writeShellApplication {
       rm -f "/nix/var/nix/gcroots/microvm/$(instance "$name")" "/nix/var/nix/gcroots/microvm/booted-$(instance "$name")"
       if [ "$STORAGE" = zfs ]; then
         udevadm settle
-        for volume in home state; do
-          for _ in $(seq 1 20); do
-            zfs destroy "$(zvol "$name" "$volume")" 2> /dev/null && break
-            sleep 1
-          done
-          if zfs list "$(zvol "$name" "$volume")" > /dev/null 2>&1; then
-            die "could not destroy $(zvol "$name" "$volume")"
-          fi
+        for _ in $(seq 1 20); do
+          zfs destroy -r "$(zvol "$name")" 2> /dev/null && break
+          sleep 1
         done
+        if zfs list "$(zvol "$name")" > /dev/null 2>&1; then
+          die "could not destroy $(zvol "$name")"
+        fi
       fi
       echo "destroyed $(instance "$name")"
     }

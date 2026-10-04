@@ -33,7 +33,7 @@
           defaults = {
             mem = 1024;
             vcpu = 1;
-            homeSize = 512;
+            persistSize = 512;
             storeSize = 2048;
           };
         };
