@@ -142,6 +142,10 @@ in
     assertions = [ {
       assertion = cfg.storage == "zfs" -> cfg.zfs.parentDataset != null;
       message = "floxMachines.zfs.parentDataset must be set when storage is zfs";
+    }
+    {
+      assertion = cfg.frontDoor.oauthSecretFile == null || !lib.hasPrefix "${builtins.storeDir}/" cfg.frontDoor.oauthSecretFile;
+      message = "floxMachines.frontDoor.oauthSecretFile must not be in the Nix store, where every user can read it";
     } ];
 
     microvm.templates.machine = {
