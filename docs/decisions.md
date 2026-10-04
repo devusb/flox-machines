@@ -141,3 +141,11 @@ microvm.nix runs virtiofsd as root. Running it unprivileged needs user-namespace
 ## 2026-10-04 Machines keep their base until restarted
 
 A host rebuild that changes the template updates every machine's runner but restarts none of them by default. Running machines keep their booted base until `machine restart`, `machine resize` or a reboot from inside the machine, and interactive shells show a notice when a newer base is waiting. The host writes the template's current system path into each machine's read-only instance share as `instance/system` for that comparison. `floxMachines.restartOnUpdate = true` restarts machines on every template change instead. Chosen by Morgan so running sessions are never interrupted by an update; the cost is that fixes in the base wait for each person's restart.
+
+## 2026-10-04 A reboot inside a machine powers it off
+
+cloud-hypervisor handles a guest reboot itself and keeps its configuration, so a machine that rebooted itself came back on the base it booted with. The template makes systemd's reboot end as a power-off; cloud-hypervisor exits, and the host's `microvm@` unit, which always restarts, starts the machine again from the current runner. `sudo reboot` inside a machine therefore takes a waiting base.
+
+## 2026-10-04 No waiting on timeouts
+
+`machine destroy` kills the VM before stopping its unit, because a machine still in its initrd ignores the shutdown request and its data is being deleted anyway. The host's network-online wait ignores the machine bridge, which has no carrier until a machine starts, and the front door does not wait for network-online because tsnet retries on its own. Tests assert deadlines for these paths so a reintroduced timeout fails them.
