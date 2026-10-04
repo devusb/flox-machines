@@ -34,18 +34,30 @@ The service handles HTTP and identity only. Every host operation goes through th
 ## Service
 
 - Go, using `tailscale.com/tsnet`. One binary, `flox-machines-front-door`.
-- Joins the tailnet as its own node with hostname `floxMachines.frontDoor.hostname`, default `machines`. tsnet state lives in `/var/lib/flox-machines/front-door`.
+- Joins the tailnet as its own tagged node, with hostname `floxMachines.frontDoor.hostname` (default `machines`) and tags `floxMachines.frontDoor.tags` (default `[ "tag:flox-machines" ]`). It authenticates with an OAuth client secret read from `floxMachines.frontDoor.oauthSecretFile`; a plain auth key in that file also works. tsnet state lives in `/var/lib/flox-machines/front-door`.
 - Listens with TLS on port 443 when the tailnet offers certificates for the node, and on plain HTTP port 80 otherwise.
-- For each request, calls the tsnet local client's WhoIs with the remote address. Requests whose caller cannot be identified, and requests from tagged nodes, get 403.
-- The machine name is the login's local part, lowercased, with every character outside `[a-z0-9-]` replaced by `-`, leading characters that are not letters removed, and the result cut to 31 characters. A login that cleans to nothing gets 403. The name is never read from the request.
+- For each request, calls the tsnet local client's WhoIs with the remote address. Requests whose caller cannot be identified, and requests from tagged nodes, get 403. Only people create machines.
 - Runs as root, because the CLI does.
+
+### Machine names
+
+The name comes from the caller's login, never from the request:
+
+1. Take the part before `@`, lowercase it, and drop anything from a `+` onward.
+2. Replace every run of characters outside `[a-z0-9]` with one `-`, and trim `-` from both ends. `first.last` becomes `first-last`.
+3. If it starts with a digit, prefix `u-`.
+4. Cut it to 31 characters and trim a trailing `-`.
+
+A login that cleans to nothing, or to a reserved name, gets an error page and no machine. Reserved names are those of system accounts in the guest and on the host, plus `admin`, `root`, `nobody`, `sshd`, `tailscale`, `microvm` and `nixbld`.
+
+Logins in this tailnet are unique, so two people mapping to one name is not expected. The CLI still records the owner's full login at create, in a host-only file `owner` in the instance directory outside the guest share. The front door acts on a machine only when its recorded owner equals the caller. A mismatch gets an error page naming the conflict, and nothing is created or changed.
 
 ### Routes
 
 | Route | Behavior |
 |---|---|
-| `GET /` | Runs `machine status <name> --json` and renders one of the states below |
-| `POST /create` | Runs `machine create <name>` if the caller has no machine, then redirects to `/`. If a machine exists, redirects to `/` without creating |
+| `GET /` | Runs `machine status <name> --json`, checks the recorded owner, and renders one of the states below |
+| `POST /create` | Runs `machine create <name> --owner <login>` if the caller has no machine, then redirects to `/`. If a machine exists, redirects to `/` without creating |
 | `POST /login` | Runs `machine login <name>` and redirects to `/` |
 
 `POST /create` and `POST /login` require a same-origin form token so a cross-site request cannot act for a visitor.
@@ -60,7 +72,12 @@ The service handles HTTP and identity only. Every host operation goes through th
 | claim | Tailscale state `NeedsLogin` with a login URL | Link to the login URL, a button that posts to `/login` for a fresh link, and a refresh every 3 s |
 | ready | Tailscale state `Running` and the node owner is the caller | Tailnet name, `ssh <name>@<tailnet name>`, and a note that `sudo tailscale serve` publishes services |
 | wrong owner | Tailscale state `Running` and the node owner is a different login | A warning that the machine joined the tailnet as that login, with the ready details |
+| conflict | the name is reserved, or the machine's recorded owner is a different login | An error naming the problem; nothing is created or changed |
 | error | CLI failure | The CLI's error message |
+
+## CLI: `machine create --owner`
+
+`machine create <name> --owner <login>` writes `<login>` to `owner` in the instance directory. `machine status --json` reports it as `owner` at the top level. Machines created without `--owner` have none, and the front door treats them as belonging to nobody.
 
 ## CLI: `machine status`
 
@@ -70,6 +87,7 @@ The service handles HTTP and identity only. Every host operation goes through th
 {
   "name": "alice",
   "exists": true,
+  "owner": "alice@flox.dev",
   "running": true,
   "reachable": true,
   "tailscale": {
@@ -102,12 +120,20 @@ The guest reaches the Tailscale control server through the host's NAT, so `floxM
 |---|---|---|
 | `floxMachines.frontDoor.enable` | `false` | Run the front door |
 | `floxMachines.frontDoor.hostname` | `"machines"` | tsnet node name |
-| `floxMachines.frontDoor.authKeyFile` | `null` | Auth key for the service's own first join; without it, the login URL is printed to the journal |
+| `floxMachines.frontDoor.tags` | `[ "tag:flox-machines" ]` | Tags the front door node advertises |
+| `floxMachines.frontDoor.oauthSecretFile` | `null` | OAuth client secret, or an auth key, for the front door's join. Without it, the login URL is printed to the journal |
 
 The service is a systemd unit `flox-machines-front-door` with `machine` on its `PATH`.
 
 ## Testing
 
-- Go unit tests: name cleaning, state selection from status JSON including the login, claim and wrong-owner states, handlers against a fake CLI, form token check.
+- Go unit tests: name cleaning including `first.last`, `+` tags, leading digits and reserved names; owner match and conflict; state selection from status JSON including the login, claim and wrong-owner states, handlers against a fake CLI, form token check.
 - NixOS test `front-door`: the service runs with a test-only flag that listens on localhost over plain HTTP and takes the caller's login from an `X-Test-Login` header instead of WhoIs. The flag is never set by the module. The test creates a machine for `alice@example.com`, checks a second create does not make another machine, checks a header-less request gets 403, and checks the page reaches the login state: `tailscale.state` is `NeedsLogin` with no URL, because the test network cannot reach Tailscale. It also checks `machine login` returns without error.
 - The real login URL and claim are checked on a live host.
+
+## Tailnet policy
+
+- `tag:flox-machines` is defined, owned by admins, and the OAuth client may create keys for it.
+- A grant lets members reach `tag:flox-machines` on port 443, and on port 80 if HTTPS certificates are off.
+- A Tailscale SSH rule lets members SSH to their own devices as their own user.
+- Device approval is not required.
