@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{if .Refresh}}<meta http-equiv="refresh" content="3">{{end}}
+<title>Flox Machines</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 36rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; color: #1a1a1a; background: #fafafa; }
+  @media (prefers-color-scheme: dark) { body { color: #e8e8e8; background: #161616; } a { color: #8ab4ff; } }
+  h1 { font-size: 1.4rem; }
+  code { font-size: 0.95rem; }
+  button { font: inherit; padding: 0.5rem 1rem; }
+  .muted { opacity: 0.7; }
+  .warn { color: #b45309; }
+</style>
+</head>
+<body>
+<h1>Flox Machines</h1>
+{{if .Login}}<p class="muted">Signed in as {{.Login}}</p>{{end}}
+
+{{if .Message}}<p class="warn">{{.Message}}</p>{{end}}
+
+{{if eq .State "none"}}
+<p>You don't have a machine yet.</p>
+<form method="post" action="/create">
+  <input type="hidden" name="token" value="{{.Token}}">
+  <button type="submit">Create</button>
+</form>
+
+{{else if eq .State "booting"}}
+<p>Starting your machine, <code>machine-{{.Name}}</code>.</p>
+
+{{else if eq .State "login"}}
+<p>Preparing your Tailscale login.</p>
+<form method="post" action="/login">
+  <input type="hidden" name="token" value="{{.Token}}">
+  <button type="submit">Ask again</button>
+</form>
+
+{{else if eq .State "claim"}}
+<p>Your machine is ready to join your tailnet.</p>
+<p><a href="{{.Status.Tailscale.AuthURL}}">Add machine-{{.Name}} to your tailnet</a></p>
+<form method="post" action="/login">
+  <input type="hidden" name="token" value="{{.Token}}">
+  <button type="submit">Get a new link</button>
+</form>
+
+{{else if eq .State "ready"}}
+<p>Your machine is on your tailnet as <code>{{.Status.Tailscale.DNSName}}</code>.</p>
+<p>Connect with <code>ssh {{.Name}}@{{.Status.Tailscale.DNSName}}</code></p>
+<p class="muted">Publish a service to your tailnet with <code>sudo tailscale serve --bg &lt;port&gt;</code>.</p>
+
+{{else if eq .State "wrong-owner"}}
+<p class="warn">Your machine joined the tailnet as {{.Status.Tailscale.Owner}}, not {{.Login}}.</p>
+<p>It is on the tailnet as <code>{{.Status.Tailscale.DNSName}}</code>.</p>
+
+{{else if eq .State "conflict"}}
+<p class="warn">Conflict: {{if .Name}}the machine named <code>machine-{{.Name}}</code> belongs to another login.{{else}}this login can't have a machine.{{end}}</p>
+{{end}}
+
+</body>
+</html>
