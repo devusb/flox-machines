@@ -162,6 +162,7 @@ in
       networks."11-machines" = {
         matchConfig.Name = "mvm-*";
         networkConfig.Bridge = cfg.bridge.name;
+        bridgeConfig.Isolated = true;
       };
     };
 
