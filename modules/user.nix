@@ -5,6 +5,7 @@ let
 in
 {
   users.mutableUsers = true;
+  security.sudo.wheelNeedsPassword = false;
 
   systemd.services.machine-user = {
     description = "Create the machine owner's account from the instance directory";
@@ -25,7 +26,7 @@ in
       [ -f ${instanceDir}/user ] || exit 0
       read -r name < ${instanceDir}/user
       if ! getent passwd "$name" > /dev/null; then
-        useradd --uid 1000 --user-group --home-dir "/home/$name" --shell /run/current-system/sw/bin/bash "$name"
+        useradd --uid 1000 --user-group --groups wheel --home-dir "/home/$name" --shell /run/current-system/sw/bin/bash "$name"
       fi
       install -d -o "$name" -g "$name" -m 0700 "/home/$name"
     '';

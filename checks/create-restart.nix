@@ -54,6 +54,7 @@
         assert host.succeed("timeout 60 machine ssh bob hostname").strip() == "machine-bob"
         assert host.succeed("timeout 60 machine ssh alice hostname").strip() == "machine-alice"
         host.succeed("timeout 60 machine ssh alice id alice")
+        host.succeed("timeout 60 machine ssh alice 'runuser -u alice -- sudo -n true'")
         host.succeed("timeout 60 machine ssh alice cat /etc/machine/base-version | grep -qx 1")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q nixpkgs")
         host.succeed("timeout 60 machine ssh alice cat /etc/nix/registry.json | grep -q home-manager")

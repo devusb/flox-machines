@@ -7,7 +7,7 @@ A NixOS host that turns a tailnet identity into a personal NixOS microVM built f
 - A person in the tailnet gets a persistent remote machine with one tap and no setup.
 - The machine is reachable only by its owner over Tailscale, from laptop or phone, with no keys to manage.
 - The person installs anything with Flox, optionally manages configuration with home-manager, keeps credentials on the box, runs services and containers, and attaches to long-running agent sessions from any device.
-- The person never runs an OS update, never has root, never sees Nix unless they choose to.
+- The person never has to run an OS update or see Nix unless they choose to. They have root inside their own machine.
 - The admin updates every machine by rebuilding the host.
 - Each machine is a kernel boundary. A compromised agent is confined to its owner's machine, credentials and network grants.
 
@@ -66,7 +66,7 @@ One NixOS configuration, `machine`, exported from the flake and registered as a 
 
 - **Identity.** The `microvm.instance` guest module mounts the instance directory, sets the hostname, and loads systemd credentials from it. The person's username and SSH keys come from the instance file.
 - **Access.** tailscaled with Tailscale SSH. No sshd on the network. The guest's Tailscale state lives on the state volume so the node identity survives reboots.
-- **Account.** One user named after the person, no password, no sudo. A root account reachable only over vsock SSH from the host.
+- **Account.** One user named after the person, no password, with passwordless sudo through `wheel`. Root is also reachable from the host over the bridge with the admin key.
 - **Sessions.** tmux and agent-deck. The login shell attaches to the person's session. mosh for the phone.
 - **Software.** flox is in the system closure. Environments belong to the person. The base creates none and the shell integration is flox's own.
 - **Configuration.** home-manager available as a standalone tool. A flake template in the platform repo gives a working home configuration with shell, tmux, agent-deck and Flox activation wired. Using it is optional.

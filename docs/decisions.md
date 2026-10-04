@@ -113,3 +113,7 @@ Guest clients reach the overlay store through `NIX_REMOTE=daemon` in the session
 ## 2026-10-03 User services start after the store repair
 
 Each boot, a separate `machine-linger` service enables linger for the owner after `microvm-verify-store` finishes, so the owner's user units start only once missing store paths have been restored. Account creation stays in its own service before SSH, so logging in does not wait for repair downloads. Linger is not persisted, because `/var/lib/systemd` is on the guest tmpfs.
+
+## 2026-10-03 Owners have passwordless sudo
+
+The owner's account is in `wheel`, and `wheel` needs no password for sudo. Decided by Morgan. Owners have root inside their own machine; the hypervisor remains the boundary between machines and the host. The instance share is mounted read-only so root in a guest cannot change files the host reads back.
