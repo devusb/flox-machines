@@ -141,3 +141,7 @@ microvm.nix runs virtiofsd as root. Running it unprivileged needs user-namespace
 ## 2026-10-04 Machines keep their base until restarted
 
 A host rebuild that changes the template updates every machine's runner but restarts none of them by default. Running machines keep their booted base until `machine restart`, `machine resize` or a reboot from inside the machine, and interactive shells show a notice when a newer base is waiting. The host writes the template's current system path into each machine's read-only instance share as `instance/system` for that comparison. `floxMachines.restartOnUpdate = true` restarts machines on every template change instead. Chosen by Morgan so running sessions are never interrupted by an update; the cost is that fixes in the base wait for each person's restart.
+
+## 2026-10-04 Machines collect garbage twice a month
+
+The template enables `nix.gc` on the 1st and 15th of each month at 03:00, with up to six hours of random delay and catch-up after downtime. It removes unreferenced paths only; old profile and home-manager generations are kept so people can roll back. The machine's store is a `local-overlay` store, so collection only removes paths from the machine's upper layer, never from the host's store.

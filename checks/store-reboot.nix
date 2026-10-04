@@ -82,6 +82,16 @@ in
             wait_alice()
             check()
 
+        with subtest("periodic guest garbage collection"):
+            host.succeed("timeout 60 machine ssh alice systemctl is-enabled nix-gc.timer")
+            kept = host.succeed("timeout 60 machine ssh alice 'echo kept > /home/k && nix store add-file /home/k'").strip()
+            host.succeed(f"timeout 60 machine ssh alice nix-store --add-root /home/k-root --realise {kept}")
+            gone = host.succeed("timeout 60 machine ssh alice 'echo gone > /home/g && nix store add-file /home/g'").strip()
+            host.succeed("timeout 300 machine ssh alice systemctl start nix-gc.service")
+            host.fail(f"timeout 60 machine ssh alice nix path-info {gone}")
+            host.succeed(f"timeout 60 machine ssh alice nix path-info {kept} ${pkgs.hello}")
+            host.succeed("timeout 60 machine ssh alice nix-store --verify")
+
         with subtest("reimage clears the store layer and keeps home"):
             host.succeed("machine reimage alice")
             wait_alice()
