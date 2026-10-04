@@ -27,6 +27,7 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 | `tailscale-status-jq` | the filter that turns `tailscale status --json` into `machine status` fields, on captured outputs |
 | `front-door` | `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names, and the front door service creating a machine in test mode |
 | `front-door-tsnet` | the front door starts its real tsnet node without network and stays up |
+| `network-isolation` | machines reach the host only for DHCP and ping, and cannot reach each other over the bridge |
 | `forkTests.instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
 | `forkTests.instances-restart` | relink on host switch, no-op switch restarts nothing, template sizing flows to instances without an override |
 | `forkTests.overlay-store` | overlay store: host paths visible, guest paths persist, repair of a deleted host path from a substituter |
