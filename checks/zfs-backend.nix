@@ -53,11 +53,7 @@
         host.succeed("timeout 60 machine ssh alice findmnt -n -o SOURCE /persist | grep -q /dev/vd")
         host.succeed("timeout 60 machine ssh alice 'echo before > /home/alice/z && sync'")
 
-        host.succeed("zfs snapshot tank/machines/alice@test")
-        host.succeed("timeout 60 machine ssh alice 'echo after > /home/alice/z && sync'")
-        host.succeed("systemctl stop microvm@machine-alice.service")
-        host.succeed("zfs rollback tank/machines/alice@test")
-        host.succeed("systemctl start microvm@machine-alice.service")
+        host.succeed("machine restart alice")
         host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
         host.succeed("timeout 60 machine ssh alice cat /home/alice/z | grep -qx before")
 
