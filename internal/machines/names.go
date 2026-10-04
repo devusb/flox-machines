@@ -1,8 +1,9 @@
-package main
+package machines
 
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -45,4 +46,13 @@ func MachineName(login string) (string, error) {
 		return "", fmt.Errorf("%q is a reserved name", name)
 	}
 	return name, nil
+}
+
+var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}$`)
+
+func ValidName(name string) error {
+	if !namePattern.MatchString(name) {
+		return fmt.Errorf("invalid name '%s'", name)
+	}
+	return nil
 }

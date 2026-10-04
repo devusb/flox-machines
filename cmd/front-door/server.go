@@ -15,10 +15,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/devusb/flox-machines/internal/machines"
 )
 
 type CLI interface {
-	Status(ctx context.Context, name string) (Status, error)
+	Status(ctx context.Context, name string) (machines.Status, error)
 	Create(ctx context.Context, name, owner string) error
 	Login(ctx context.Context, name string) error
 }
@@ -42,14 +44,14 @@ func (c ExecCLI) run(ctx context.Context, args ...string) ([]byte, error) {
 	return out, nil
 }
 
-func (c ExecCLI) Status(ctx context.Context, name string) (Status, error) {
+func (c ExecCLI) Status(ctx context.Context, name string) (machines.Status, error) {
 	out, err := c.run(ctx, "status", name, "--json")
 	if err != nil {
-		return Status{}, err
+		return machines.Status{}, err
 	}
-	var s Status
+	var s machines.Status
 	if err := json.Unmarshal(out, &s); err != nil {
-		return Status{}, fmt.Errorf("machine status: %w", err)
+		return machines.Status{}, fmt.Errorf("machine status: %w", err)
 	}
 	return s, nil
 }
@@ -86,7 +88,7 @@ type page struct {
 	Login   string
 	Name    string
 	Token   string
-	Status  Status
+	Status  machines.Status
 	Message string
 	Refresh bool
 }
@@ -112,7 +114,7 @@ func (s *server) caller(w http.ResponseWriter, r *http.Request) (login, name str
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return "", "", false
 	}
-	name, err := MachineName(login)
+	name, err := machines.MachineName(login)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		s.render(w, page{State: StateConflict, Login: login, Message: fmt.Sprintf("No machine can be made for %s: %v.", login, err)})
