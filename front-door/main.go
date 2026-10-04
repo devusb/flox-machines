@@ -63,7 +63,7 @@ func main() {
 	hostname := flag.String("hostname", "machines", "tailnet node name")
 	tags := flag.String("tags", "tag:flox-machines", "comma-separated tags the node advertises")
 	secretFile := flag.String("secret-file", "", "file holding an OAuth client secret or auth key")
-	stateDir := flag.String("state-dir", "/var/lib/flox-machines/front-door", "tsnet state directory")
+	stateDir := flag.String("state-dir", "/var/lib/flox-machines-front-door", "tsnet state directory")
 	machine := flag.String("machine", "machine", "path to the machine CLI")
 	testListen := flag.String("test-listen", "", "for tests: serve plain HTTP on this address with identity from X-Test-Login")
 	formKeyFile := flag.String("form-key-file", "", "form token key, created if missing (default <state-dir>/form.key)")

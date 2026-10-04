@@ -17,6 +17,10 @@ let
     inherit keyDir;
   };
   frontDoorPackage = pkgs.callPackage ../pkgs/front-door.nix { };
+  frontDoorUser = "flox-machines-front-door";
+  frontDoorMachine = pkgs.writeShellScript "front-door-machine" ''
+    exec /run/wrappers/bin/sudo -n ${lib.getExe' machineCli "machine"} "$@"
+  '';
 in
 {
   imports = [ inputs.microvm.nixosModules.host ];
@@ -199,6 +203,22 @@ in
     services.zfs.autoSnapshot.enable = lib.mkIf (cfg.storage == "zfs") true;
 
 
+
+    users.users.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable {
+      isSystemUser = true;
+      group = frontDoorUser;
+    };
+    users.groups.${frontDoorUser} = lib.mkIf cfg.frontDoor.enable { };
+
+    security.sudo.extraRules = lib.mkIf cfg.frontDoor.enable [
+      {
+        users = [ frontDoorUser ];
+        commands = map (command: {
+          command = "${lib.getExe' machineCli "machine"} ${command} *";
+          options = [ "NOPASSWD" ];
+        }) [ "create" "status" "login" ];
+      }
+    ];
     systemd.services.flox-machines-front-door = lib.mkIf cfg.frontDoor.enable {
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
@@ -214,13 +234,17 @@ in
             "--tags"
             (lib.concatStringsSep "," cfg.frontDoor.tags)
             "--machine"
-            (lib.getExe' machineCli "machine")
+            "${frontDoorMachine}"
+            "--state-dir"
+            "/var/lib/flox-machines-front-door"
           ]
           ++ lib.optionals (cfg.frontDoor.oauthSecretFile != null) [ "--secret-file" "%d/secret" ]
           ++ lib.optionals (cfg.frontDoor.testListen != null) [ "--test-listen" cfg.frontDoor.testListen ]
         );
         LoadCredential = lib.optional (cfg.frontDoor.oauthSecretFile != null) "secret:${cfg.frontDoor.oauthSecretFile}";
-        StateDirectory = "flox-machines/front-door";
+        User = frontDoorUser;
+        Group = frontDoorUser;
+        StateDirectory = "flox-machines-front-door";
         StateDirectoryMode = "0700";
         Restart = "on-failure";
         RestartSec = "5s";

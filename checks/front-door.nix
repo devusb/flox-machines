@@ -67,6 +67,7 @@
         host.fail("machine create admin")
 
         host.wait_for_unit("flox-machines-front-door.service")
+        host.succeed("test \"$(systemctl show -p User --value flox-machines-front-door.service)\" = flox-machines-front-door")
         host.wait_for_open_port(8080)
         host.succeed("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ | grep -qx 403")
         import re
