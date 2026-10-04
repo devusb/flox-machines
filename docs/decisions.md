@@ -149,3 +149,7 @@ cloud-hypervisor handles a guest reboot itself and keeps its configuration, so a
 ## 2026-10-04 No waiting on timeouts
 
 `machine destroy` kills the VM before stopping its unit, because a machine still in its initrd ignores the shutdown request and its data is being deleted anyway. The host's network-online wait ignores the machine bridge, which has no carrier until a machine starts, and the front door does not wait for network-online because tsnet retries on its own. Tests assert deadlines for these paths so a reintroduced timeout fails them.
+
+## 2026-10-04 Machines collect garbage twice a month
+
+The template enables `nix.gc` on the 1st and 15th of each month at 03:00, with up to six hours of random delay and catch-up after downtime. It removes unreferenced paths only; old profile and home-manager generations are kept so people can roll back. The machine's store is a `local-overlay` store, so collection only removes paths from the machine's upper layer, never from the host's store.

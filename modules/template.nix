@@ -61,6 +61,12 @@
   };
 
   nix = {
+    gc = {
+      automatic = true;
+      dates = "*-*-01,15 03:00";
+      randomizedDelaySec = "6h";
+      persistent = true;
+    };
     settings.experimental-features = [ "nix-command" "flakes" ];
     registry.nixpkgs.flake = inputs.nixpkgs;
     registry.home-manager.flake = inputs.home-manager;
