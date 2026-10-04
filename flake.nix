@@ -39,6 +39,6 @@
           // import "${inputs.microvm}/checks/overlay-store.nix" args
         );
 
-      packages.${system}.front-door = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/front-door.nix { };
+      packages.${system}.flox-machines = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/flox-machines.nix { };
     };
 }

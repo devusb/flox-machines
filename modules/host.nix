@@ -17,7 +17,7 @@ let
     parentDataset = cfg.zfs.parentDataset;
     inherit keyDir;
   };
-  frontDoorPackage = pkgs.callPackage ../pkgs/front-door.nix { };
+  frontDoorPackage = pkgs.callPackage ../pkgs/flox-machines.nix { };
   frontDoorUser = "flox-machines-front-door";
   frontDoorMachine = pkgs.writeShellScript "front-door-machine" ''
     exec /run/wrappers/bin/sudo -n ${lib.getExe' machineCli "machine"} "$@"
@@ -249,7 +249,7 @@ in
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
           [
-            (lib.getExe frontDoorPackage)
+            (lib.getExe' frontDoorPackage "flox-machines-front-door")
             "--hostname"
             cfg.frontDoor.hostname
             "--tags"

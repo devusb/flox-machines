@@ -1,4 +1,4 @@
-module github.com/devusb/flox-machines/front-door
+module github.com/devusb/flox-machines
 
 go 1.27.1
 
