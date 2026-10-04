@@ -19,6 +19,7 @@
     vcpu = floxMachines.defaults.vcpu;
     mem = floxMachines.defaults.mem;
     socket = "control.socket";
+    vsock.cid = 3;
     instance.enable = true;
     interfaces = [
       {
