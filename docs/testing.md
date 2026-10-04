@@ -13,9 +13,9 @@ The fork's tests are exposed through this flake and run against a local checkout
 ```bash
 nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
   --override-input microvm git+file:///path/to/microvm.nix \
-  .#legacyPackages.x86_64-linux.forkTests.instances \
-  .#legacyPackages.x86_64-linux.forkTests.instances-restart \
-  .#legacyPackages.x86_64-linux.forkTests.overlay-store
+  .#checks.x86_64-linux.fork-instances \
+  .#checks.x86_64-linux.fork-instances-restart \
+  .#checks.x86_64-linux.fork-overlay-store
 ```
 
 | Test | Covers |
@@ -28,9 +28,9 @@ nix build -L --no-link --eval-store auto --store ssh-ng://<builder> \
 | `front-door` | `machine create --owner`, `machine status --json` from an offline tailscaled, `machine login`, reserved names, and the front door service creating a machine in test mode |
 | `front-door-tsnet` | the front door starts its real tsnet node without network and stays up |
 | `network-isolation` | machines reach the host only for DHCP and ping, and cannot reach each other over the bridge |
-| `forkTests.instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
-| `forkTests.instances-restart` | relink on host switch, no-op switch restarts nothing, template sizing flows to instances without an override |
-| `forkTests.overlay-store` | overlay store: host paths visible, guest paths persist, repair of a deleted host path from a substituter |
+| `fork-instances` | template instances, `instance.env`, late-bound memory, vCPUs, taps, MACs, per-instance machine-id |
+| `fork-instances-restart` | relink on host switch, no-op switch restarts nothing, template sizing flows to instances without an override |
+| `fork-overlay-store` | overlay store: host paths visible, guest paths persist, repair of a deleted host path from a substituter |
 
 The test network has no internet access. Test guests use `checks/lean-guest.nix`, which disables substituters, and every guest command runs under a timeout.
 
