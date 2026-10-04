@@ -170,6 +170,7 @@ in
 
     systemd.network = {
       enable = true;
+      wait-online.ignoredInterfaces = [ cfg.bridge.name ];
       netdevs."10-${cfg.bridge.name}".netdevConfig = {
         Name = cfg.bridge.name;
         Kind = "bridge";
@@ -238,8 +239,7 @@ in
     systemd.services.flox-machines-front-door = lib.mkIf cfg.frontDoor.enable {
       description = "Flox Machines front door";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" "flox-machines-key.service" ];
-      wants = [ "network-online.target" ];
+      after = [ "flox-machines-key.service" ];
       path = [ machineCli "/run/current-system/sw" ];
       serviceConfig = {
         ExecStart = lib.escapeShellArgs (
