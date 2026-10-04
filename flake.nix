@@ -30,6 +30,8 @@
         inherit self nixpkgs system;
       };
 
+      packages.${system}.front-door = nixpkgs.legacyPackages.${system}.callPackage ./pkgs/front-door.nix { };
+
       legacyPackages.${system}.forkTests =
         let
           args = {
