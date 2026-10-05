@@ -93,7 +93,7 @@
             host.succeed("timeout 60 machine ssh alice cat /home/alice/keep | grep -qx keep")
             assert host.succeed("timeout 60 machine ssh alice cat /persist/etc/ssh/ssh_host_ed25519_key.pub").strip() == hostkey, "ssh host key changed across restart"
             host.succeed("timeout 60 machine ssh alice tailscale debug prefs | grep -q '\"RunSSH\": true'")
-            host.succeed("machine list | grep -q machine-alice")
+            host.succeed("machine list | grep -q '^alice:'")
             host.succeed("machine create carol")
             host.wait_for_unit("microvm@machine-carol.service")
             host.succeed("timeout 30 machine destroy carol")

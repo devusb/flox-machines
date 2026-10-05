@@ -274,7 +274,7 @@ func TestList(t *testing.T) {
 	f.out["microvm -l"] = "\x1b[1mmachine-alice\x1b[0m: current\nother-vm: current\nmachine-bob: outdated\n"
 	got, err := m.List(ctx)
 	must(t, err)
-	if got != "machine-alice: current\nmachine-bob: outdated\n" {
+	if got != "alice: current\nbob: outdated\n" {
 		t.Errorf("list = %q", got)
 	}
 }
