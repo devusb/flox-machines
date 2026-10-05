@@ -177,3 +177,7 @@ When `machine create` fails after making the persist zvol and cannot destroy it,
 ## 2026-10-05 Logins do not start tmux
 
 An SSH login lands in a plain shell. tmux is installed in the base and people start it themselves. Decided by Morgan.
+
+## 2026-10-05 Machine keys expire and owners re-authenticate
+
+Machines' Tailscale node keys keep the tailnet's expiry. When a key expires, the machine is in `NeedsLogin` and the front door gives its owner a new login link, as on the first claim. Disabling key expiry through the Tailscale API after a claim was considered and set aside, because it needs a credential on the host that can change every device in the tailnet. Decided by Morgan.

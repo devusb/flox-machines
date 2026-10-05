@@ -217,7 +217,7 @@ func TestPages(t *testing.T) {
 		{"claim", machines.Status{Exists: true, Owner: alice, Reachable: true,
 			Tailscale: &machines.TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/abc"}},
 			[]string{`href="https://login.tailscale.com/a/abc"`, `http-equiv="refresh"`}},
-		{"ready", loadStatus(t, "status-running.json"), []string{"ssh alice@machine-alice.example.ts.net", "sudo tailscale serve"}},
+		{"ready", loadStatus(t, "status-running.json"), []string{"ssh alice@machine-alice.example.ts.net", "sudo tailscale serve", "come back here to reconnect it"}},
 		{"wrong owner", machines.Status{Exists: true, Owner: alice, Reachable: true,
 			Tailscale: &machines.TailscaleStatus{State: "Running", DNSName: "machine-alice.example.ts.net", Owner: "bob@example.com"}},
 			[]string{"bob@example.com"}},
