@@ -148,7 +148,7 @@ func (m *Manager) List(ctx context.Context) (string, error) {
 	var b strings.Builder
 	for _, line := range strings.Split(ansi.ReplaceAllString(string(out), ""), "\n") {
 		if strings.HasPrefix(line, "machine-") {
-			b.WriteString(line + "\n")
+			b.WriteString(strings.TrimPrefix(line, "machine-") + "\n")
 		}
 	}
 	return b.String(), nil
