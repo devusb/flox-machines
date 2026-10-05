@@ -92,12 +92,6 @@
     fi
   '';
 
-  programs.bash.interactiveShellInit = ''
-    if [ -n "$SSH_CONNECTION" ] && [ -z "$TMUX" ] && [ "$(id -u)" != 0 ]; then
-      exec tmux new-session -A -s main
-    fi
-  '';
-
   systemd.services.systemd-reboot.unitConfig.SuccessAction = "poweroff-force";
 
   documentation.enable = false;

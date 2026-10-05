@@ -173,3 +173,7 @@ When `machine create` fails after making the persist zvol and cannot destroy it,
 ## 2026-10-04 treefmt-nix without flake-parts
 
 `nix fmt` and the `formatting` check come from treefmt-nix's `lib.evalModule`, called directly in `flake.nix`, with nixfmt, gofmt and yamlfmt. The flake stays a plain flake rather than moving to flake-parts for treefmt-nix's flake module.
+
+## 2026-10-05 Logins do not start tmux
+
+An SSH login lands in a plain shell. tmux is installed in the base and people start it themselves. Decided by Morgan.
