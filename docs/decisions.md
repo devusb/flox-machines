@@ -185,3 +185,7 @@ Machines' Tailscale node keys keep the tailnet's expiry. When a key expires, the
 ## 2026-10-05 chsh persists through /persist
 
 fish and zsh are in the base, and the owner's login shell set with `chsh` survives restarts. A path unit watches `/etc/passwd` and saves the owner's shell to `/persist/etc/machine/shell`; `machine-user` creates the account with it at boot, or with bash if the saved path is not executable. The watcher starts after `machine-user`, so a fallback at boot does not overwrite the saved shell. A file in the person's home that names the shell and saving the shell only at shutdown were considered; `chsh` is the command people already reach for, and watching for the change saves it even if the machine is killed. Decided by Morgan.
+
+## 2026-10-05 Nix state volume holds builds
+
+Nix 2.34 builds in `/nix/var/nix/builds` when `build-dir` is unset, which in a machine is the Nix state volume. Its size is `floxMachines.defaults.nixVarSize`, 50 GB by default and sparse, instead of the overlay store module's 1 GB default, and `machine grow <name> var` enlarges it like the other volumes. Merging the Nix state into the store volume was considered and left for later, since it changes the overlay store module in the microvm.nix fork.

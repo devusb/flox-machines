@@ -41,6 +41,7 @@
     overlayStore = {
       enable = true;
       upperSize = floxMachines.defaults.storeSize;
+      varSize = floxMachines.defaults.nixVarSize;
     };
   };
 

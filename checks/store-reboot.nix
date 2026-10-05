@@ -43,6 +43,7 @@ in
                 vcpu = 1;
                 persistSize = 512;
                 storeSize = 4096;
+                nixVarSize = 1024;
               };
             };
 

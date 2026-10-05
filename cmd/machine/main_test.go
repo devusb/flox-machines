@@ -63,18 +63,18 @@ func invoke(args []string, ops *stubOps) (int, string, string, []string) {
 
 const usageText = `Usage: machine <command> [args]
 
-  create <name> [--owner <login>]  create and start a machine
-  status <name> [--json]           report a machine's state
-  login <name>                     start a Tailscale login on a machine
-  ssh <name> [command...]          run a command as root on a machine
-  restart <name>                   restart a machine
-  resize <name> <mem-MB> <vcpu>    set a per-machine size and restart
-  resize <name> --reset            return to the template's size and restart
-  grow <name> persist|store <MB>   grow a machine's disk and restart
-  reimage <name>                   wipe the machine's Nix store layer and restart
-  destroy <name>                   stop and delete a machine and its volumes
-  list                             list machines
-  gc                               stop all machines, collect host garbage, start them
+  create <name> [--owner <login>]     create and start a machine
+  status <name> [--json]              report a machine's state
+  login <name>                        start a Tailscale login on a machine
+  ssh <name> [command...]             run a command as root on a machine
+  restart <name>                      restart a machine
+  resize <name> <mem-MB> <vcpu>       set a per-machine size and restart
+  resize <name> --reset               return to the template's size and restart
+  grow <name> persist|store|var <MB>  grow a machine's disk and restart
+  reimage <name>                      wipe the machine's Nix store layer and restart
+  destroy <name>                      stop and delete a machine and its volumes
+  list                                list machines
+  gc                                  stop all machines, collect host garbage, start them
 `
 
 func TestUsageNoArgs(t *testing.T) {
@@ -221,7 +221,7 @@ func TestGrow(t *testing.T) {
 	}
 	for _, args := range [][]string{{"grow", "a", "store"}, {"grow", "a", "store", "4G"}, {"grow", "a", "store", "1", "2"}} {
 		code, _, errOut, _ := invoke(args, &stubOps{})
-		if code != 1 || errOut != "machine: usage: machine grow <name> persist|store <MB>\n" {
+		if code != 1 || errOut != "machine: usage: machine grow <name> persist|store|var <MB>\n" {
 			t.Errorf("%v: code %d, err %q", args, code, errOut)
 		}
 	}
