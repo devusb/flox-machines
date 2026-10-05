@@ -7,6 +7,7 @@ in
 {
   users.mutableUsers = true;
   security.sudo.wheelNeedsPassword = false;
+  nix.settings.trusted-users = [ "@wheel" ];
 
   systemd.services.machine-user = {
     description = "Create the machine owner's account from the instance directory";
