@@ -82,6 +82,7 @@
     pkgs.git
     pkgs.tmux
     pkgs.home-manager
+    pkgs.nh
   ];
 
   programs.fish.enable = true;
