@@ -50,6 +50,7 @@
 <p>Your machine is on your tailnet as <code>{{.Status.Tailscale.DNSName}}</code>.</p>
 <p>Connect with <code>ssh {{.Name}}@{{.Status.Tailscale.DNSName}}</code></p>
 <p class="muted">Publish a service to your tailnet with <code>sudo tailscale serve --bg &lt;port&gt;</code>.</p>
+<p class="muted">If machine-{{.Name}} drops off your tailnet, come back here to reconnect it.</p>
 
 {{else if eq .State "wrong-owner"}}
 <p class="warn">Your machine joined the tailnet as {{.Status.Tailscale.Owner}}, not {{.Login}}.</p>
