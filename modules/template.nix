@@ -36,6 +36,8 @@
         source = "/nix/store";
         mountPoint = "/nix/.ro-store";
         socket = "ro-store.sock";
+        cache = "always";
+        posixAcl = false;
       }
     ];
     overlayStore = {
