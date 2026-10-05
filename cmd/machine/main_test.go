@@ -12,8 +12,9 @@ import (
 )
 
 type stubOps struct {
-	calls []string
-	err   error
+	calls  []string
+	err    error
+	status *machines.Status
 }
 
 func (s *stubOps) rec(call string) error {
@@ -25,6 +26,9 @@ func (s *stubOps) Create(_ context.Context, name, owner string) error {
 	return s.rec("create " + name + " " + owner)
 }
 func (s *stubOps) Status(_ context.Context, name string) (machines.Status, error) {
+	if s.status != nil {
+		return *s.status, s.rec("status " + name)
+	}
 	return machines.Status{Name: name}, s.rec("status " + name)
 }
 func (s *stubOps) Login(_ context.Context, name string) error { return s.rec("login " + name) }
@@ -43,7 +47,7 @@ func (s *stubOps) Grow(_ context.Context, name, volume string, size int) error {
 func (s *stubOps) Reimage(_ context.Context, name string) error { return s.rec("reimage " + name) }
 func (s *stubOps) Destroy(_ context.Context, name string) error { return s.rec("destroy " + name) }
 func (s *stubOps) List(_ context.Context) (string, error) {
-	return "machine-a: current\n", s.rec("list")
+	return "a: current\n", s.rec("list")
 }
 func (s *stubOps) GC(_ context.Context) error { return s.rec("gc") }
 func (s *stubOps) SSHArgs(name string, command []string) ([]string, error) {
@@ -60,17 +64,17 @@ func invoke(args []string, ops *stubOps) (int, string, string, []string) {
 const usageText = `Usage: machine <command> [args]
 
   create <name> [--owner <login>]  create and start a machine
-  status <name> --json          report a machine's state as JSON
-  login <name>                  start a Tailscale login on a machine
-  ssh <name> [command...]       run a command as root on a machine
-  restart <name>                restart a machine
-  resize <name> <mem-MB> <vcpu> set a per-machine size and restart
-  resize <name> --reset         return to the template's size and restart
-  grow <name> persist|store <MB> grow a machine's disk and restart
-  reimage <name>                wipe the machine's Nix store layer and restart
-  destroy <name>                stop and delete a machine and its volumes
-  list                          list machines
-  gc                            stop all machines, collect host garbage, start them
+  status <name> [--json]           report a machine's state
+  login <name>                     start a Tailscale login on a machine
+  ssh <name> [command...]          run a command as root on a machine
+  restart <name>                   restart a machine
+  resize <name> <mem-MB> <vcpu>    set a per-machine size and restart
+  resize <name> --reset            return to the template's size and restart
+  grow <name> persist|store <MB>   grow a machine's disk and restart
+  reimage <name>                   wipe the machine's Nix store layer and restart
+  destroy <name>                   stop and delete a machine and its volumes
+  list                             list machines
+  gc                               stop all machines, collect host garbage, start them
 `
 
 func TestUsageNoArgs(t *testing.T) {
@@ -101,14 +105,55 @@ func TestCreateBadFlag(t *testing.T) {
 	}
 }
 
-func TestStatusNeedsJSON(t *testing.T) {
-	code, _, errOut, _ := invoke([]string{"status", "a"}, &stubOps{})
-	if code != 1 || errOut != "machine: usage: machine status <name> --json\n" {
-		t.Errorf("code %d, err %q", code, errOut)
+func TestStatusUsage(t *testing.T) {
+	for _, args := range [][]string{{"status"}, {"status", "a", "--x"}, {"status", "a", "--json", "x"}} {
+		code, _, errOut, _ := invoke(args, &stubOps{})
+		if code != 1 || errOut != "machine: usage: machine status <name> [--json]\n" {
+			t.Errorf("%v: code %d, err %q", args, code, errOut)
+		}
 	}
+}
+
+func TestStatusJSON(t *testing.T) {
 	code, out, _, _ := invoke([]string{"status", "a", "--json"}, &stubOps{})
 	if code != 0 || out != `{"name":"a","exists":false}`+"\n" {
 		t.Errorf("code %d, out %q", code, out)
+	}
+}
+
+func TestStatusMissing(t *testing.T) {
+	code, _, errOut, _ := invoke([]string{"status", "a"}, &stubOps{})
+	if code != 1 || errOut != "machine: no machine named 'a'\n" {
+		t.Errorf("code %d, err %q", code, errOut)
+	}
+}
+
+func TestStatusText(t *testing.T) {
+	ops := &stubOps{status: &machines.Status{Name: "alice", Exists: true, Owner: "alice@example.com", Running: true, Reachable: true,
+		Tailscale: &machines.TailscaleStatus{State: "NeedsLogin", AuthURL: "https://login.example/a/1"}}}
+	code, out, _, _ := invoke([]string{"status", "alice"}, ops)
+	want := `alice
+  owner      alice@example.com
+  running    yes
+  reachable  yes
+  tailscale  NeedsLogin
+  login URL  https://login.example/a/1
+`
+	if code != 0 || out != want {
+		t.Errorf("code %d, out:\n%s", code, out)
+	}
+	ops = &stubOps{status: &machines.Status{Name: "bob", Exists: true, Owner: "bob@example.com",
+		Tailscale: &machines.TailscaleStatus{State: "Running", DNSName: "machine-bob.example.ts.net", Owner: "bob@example.com"}}}
+	_, out, _, _ = invoke([]string{"status", "bob"}, ops)
+	want = `bob
+  owner      bob@example.com
+  running    no
+  reachable  no
+  tailscale  Running as bob@example.com
+  hostname   machine-bob.example.ts.net
+`
+	if out != want {
+		t.Errorf("out:\n%s", out)
 	}
 }
 
@@ -157,7 +202,7 @@ func TestDestroyAndListOutput(t *testing.T) {
 	if code, out, _, _ := invoke([]string{"destroy", "a"}, &stubOps{}); code != 0 || out != "destroyed machine-a\n" {
 		t.Errorf("destroy: code %d, out %q", code, out)
 	}
-	if code, out, _, _ := invoke([]string{"list"}, &stubOps{}); code != 0 || out != "machine-a: current\n" {
+	if code, out, _, _ := invoke([]string{"list"}, &stubOps{}); code != 0 || out != "a: current\n" {
 		t.Errorf("list: code %d, out %q", code, out)
 	}
 }
