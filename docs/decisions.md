@@ -193,3 +193,9 @@ Nix 2.34 builds in `/nix/var/nix/builds` when `build-dir` is unset, which in a m
 ## 2026-10-05 Owners are trusted Nix users
 
 `wheel` is in the machine's `nix.settings.trusted-users`, so the owner's own `nix.conf`, `--extra-substituters` and `netrc-file` reach the machine's Nix daemon. Owners already have passwordless sudo in their machine, so this grants nothing they could not do as root, and it only affects the machine's own store layer. Decided by Morgan.
+
+## 2026-10-05 The store share caches file contents
+
+The `ro-store` share runs virtiofsd with `cache = "always"` and without `--posix-acl --xattr`. With `cache=auto`, virtiofsd does not set `KEEP_CACHE`, so the guest drops a file's cached pages every time it is opened and every program start reads its binary and libraries from the host again. Store paths do not change once written, so the guest can keep them. On machines-01 this took starting `true` from 22.8 ms to 6.4 ms and `nix eval nixpkgs#hello.version` from 2.68 s to 0.59 s. The `instance` and `nix-var` shares stay on `cache=auto`, because the host changes them while machines run.
+
+A running machine does not see a host store path that it looked up before the host had it: overlayfs keeps the failed lookup and does not check the lower layer again. This happens with either cache policy. The path appears after the machine restarts.
