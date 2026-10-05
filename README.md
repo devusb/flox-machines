@@ -41,6 +41,7 @@ Flox Machines gives each person a persistent NixOS microVM built from one templa
 | Command | Effect |
 |---|---|
 | `machine create <name>` | create and start `machine-<name>` with user `<name>` |
+| `machine status <name> [--json]` | show a machine's owner, whether it runs, and its Tailscale state and login link; `--json` prints it as JSON |
 | `machine ssh <name> [command]` | run a command as root on the machine |
 | `machine restart <name>` | restart the machine |
 | `machine resize <name> <mem-MB> <vcpu>` | set a per-machine size and restart |

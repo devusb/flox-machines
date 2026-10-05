@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/devusb/flox-machines/internal/machines"
@@ -30,21 +31,33 @@ type Ops interface {
 	SSHArgs(name string, command []string) ([]string, error)
 }
 
-const usage = `Usage: machine <command> [args]
+var commands = [][2]string{
+	{"create <name> [--owner <login>]", "create and start a machine"},
+	{"status <name> [--json]", "report a machine's state"},
+	{"login <name>", "start a Tailscale login on a machine"},
+	{"ssh <name> [command...]", "run a command as root on a machine"},
+	{"restart <name>", "restart a machine"},
+	{"resize <name> <mem-MB> <vcpu>", "set a per-machine size and restart"},
+	{"resize <name> --reset", "return to the template's size and restart"},
+	{"grow <name> persist|store <MB>", "grow a machine's disk and restart"},
+	{"reimage <name>", "wipe the machine's Nix store layer and restart"},
+	{"destroy <name>", "stop and delete a machine and its volumes"},
+	{"list", "list machines"},
+	{"gc", "stop all machines, collect host garbage, start them"},
+}
 
-  create <name> [--owner <login>]  create and start a machine
-  status <name> --json          report a machine's state as JSON
-  login <name>                  start a Tailscale login on a machine
-  ssh <name> [command...]       run a command as root on a machine
-  restart <name>                restart a machine
-  resize <name> <mem-MB> <vcpu> set a per-machine size and restart
-  resize <name> --reset         return to the template's size and restart
-  grow <name> persist|store <MB> grow a machine's disk and restart
-  reimage <name>                wipe the machine's Nix store layer and restart
-  destroy <name>                stop and delete a machine and its volumes
-  list                          list machines
-  gc                            stop all machines, collect host garbage, start them
-`
+var usage = func() string {
+	width := 0
+	for _, c := range commands {
+		width = max(width, len(c[0]))
+	}
+	var b strings.Builder
+	b.WriteString("Usage: machine <command> [args]\n\n")
+	for _, c := range commands {
+		fmt.Fprintf(&b, "  %-*s  %s\n", width, c[0], c[1])
+	}
+	return b.String()
+}()
 
 var number = regexp.MustCompile(`^[0-9]+$`)
 
@@ -91,18 +104,25 @@ func dispatch(ctx context.Context, command string, args []string, ops Ops, execF
 		}
 		fmt.Fprintf(stdout, "created machine-%s\n", name)
 	case "status":
-		if len(args) < 1 || len(args) < 2 || args[1] != "--json" {
-			return usageError("machine status <name> --json")
+		if len(args) < 1 || len(args) > 2 || (len(args) == 2 && args[1] != "--json") {
+			return usageError("machine status <name> [--json]")
 		}
 		s, err := ops.Status(ctx, args[0])
 		if err != nil {
 			return err
 		}
-		out, err := json.Marshal(s)
-		if err != nil {
-			return err
+		if len(args) == 2 {
+			out, err := json.Marshal(s)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "%s\n", out)
+			return nil
 		}
-		fmt.Fprintf(stdout, "%s\n", out)
+		if !s.Exists {
+			return fmt.Errorf("no machine named '%s'", args[0])
+		}
+		writeStatus(stdout, s)
 	case "login", "restart", "reimage", "destroy":
 		if len(args) != 1 {
 			return usageError("machine " + command + " <name>")
@@ -175,4 +195,28 @@ func main() {
 		os.Exit(1)
 	}
 	os.Exit(run(os.Args[1:], machines.NewManager(cfg), execSSH, os.Stdout, os.Stderr))
+}
+
+func writeStatus(w io.Writer, s machines.Status) {
+	yesNo := map[bool]string{true: "yes", false: "no"}
+	fmt.Fprintf(w, "%s\n", s.Name)
+	fmt.Fprintf(w, "  owner      %s\n", s.Owner)
+	fmt.Fprintf(w, "  running    %s\n", yesNo[s.Running])
+	fmt.Fprintf(w, "  reachable  %s\n", yesNo[s.Reachable])
+	ts := s.Tailscale
+	if ts == nil {
+		fmt.Fprintf(w, "  tailscale  unknown\n")
+		return
+	}
+	if ts.Owner != "" {
+		fmt.Fprintf(w, "  tailscale  %s as %s\n", ts.State, ts.Owner)
+	} else {
+		fmt.Fprintf(w, "  tailscale  %s\n", ts.State)
+	}
+	if ts.DNSName != "" {
+		fmt.Fprintf(w, "  hostname   %s\n", ts.DNSName)
+	}
+	if ts.AuthURL != "" {
+		fmt.Fprintf(w, "  login URL  %s\n", ts.AuthURL)
+	}
 }
