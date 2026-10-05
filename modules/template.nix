@@ -97,6 +97,12 @@
     fi
   '';
 
+  programs.fish.interactiveShellInit = ''
+    if test -r /run/microvm/instance/system; and test (cat /run/microvm/instance/system) != (readlink -f /run/booted-system)
+      echo "A newer base for this machine is ready. Restart to use it: sudo reboot"
+    end
+  '';
+
   systemd.services.systemd-reboot.unitConfig.SuccessAction = "poweroff-force";
 
   documentation.enable = false;
