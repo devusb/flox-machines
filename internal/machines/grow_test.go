@@ -24,6 +24,22 @@ func TestGrowStoreImage(t *testing.T) {
 	f.called(t, "systemctl start microvm@machine-alice.service")
 }
 
+func TestGrowVarImage(t *testing.T) {
+	m, f := newTestManager(t, "image")
+	must(t, m.Create(ctx, "alice", ""))
+	img := filepath.Join(m.Config.StateDir, "machine-alice", "nix-var.img")
+	must(t, os.WriteFile(img, nil, 0o644))
+	must(t, os.Truncate(img, 1024<<20))
+	must(t, m.Grow(ctx, "alice", "var", 51200))
+	st, err := os.Stat(img)
+	must(t, err)
+	if st.Size() != 51200<<20 {
+		t.Errorf("size = %d", st.Size())
+	}
+	f.called(t, "e2fsck -f -p "+img)
+	f.called(t, "resize2fs "+img)
+}
+
 func TestGrowPersistZvol(t *testing.T) {
 	m, f := newTestManager(t, "zfs")
 	must(t, m.Create(ctx, "alice", ""))
@@ -92,7 +108,7 @@ func TestGrowStoppedStaysStopped(t *testing.T) {
 func TestGrowBadVolume(t *testing.T) {
 	m, _ := newTestManager(t, "image")
 	must(t, m.Create(ctx, "alice", ""))
-	if err := m.Grow(ctx, "alice", "home", 1024); err == nil || err.Error() != "usage: machine grow <name> persist|store <MB>" {
+	if err := m.Grow(ctx, "alice", "home", 1024); err == nil || err.Error() != "usage: machine grow <name> persist|store|var <MB>" {
 		t.Errorf("grow = %v", err)
 	}
 	if err := m.Grow(ctx, "alice", "store", 1024); err == nil || err.Error() != "machine 'alice' has no store volume yet" {

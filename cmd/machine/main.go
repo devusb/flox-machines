@@ -39,7 +39,7 @@ var commands = [][2]string{
 	{"restart <name>", "restart a machine"},
 	{"resize <name> <mem-MB> <vcpu>", "set a per-machine size and restart"},
 	{"resize <name> --reset", "return to the template's size and restart"},
-	{"grow <name> persist|store <MB>", "grow a machine's disk and restart"},
+	{"grow <name> persist|store|var <MB>", "grow a machine's disk and restart"},
 	{"reimage <name>", "wipe the machine's Nix store layer and restart"},
 	{"destroy <name>", "stop and delete a machine and its volumes"},
 	{"list", "list machines"},
@@ -162,7 +162,7 @@ func dispatch(ctx context.Context, command string, args []string, ops Ops, execF
 		return ops.Resize(ctx, args[0], mem, vcpu)
 	case "grow":
 		if len(args) != 3 || !number.MatchString(args[2]) {
-			return usageError("machine grow <name> persist|store <MB>")
+			return usageError("machine grow <name> persist|store|var <MB>")
 		}
 		size, _ := strconv.Atoi(args[2])
 		return ops.Grow(ctx, args[0], args[1], size)

@@ -21,8 +21,10 @@ func (m *Manager) Grow(ctx context.Context, name, volume string, sizeMB int) err
 		dev = filepath.Join(m.dir(name), "persist.img")
 	case "store":
 		dev = filepath.Join(m.dir(name), "nix-store-overlay.img")
+	case "var":
+		dev = filepath.Join(m.dir(name), "nix-var.img")
 	default:
-		return errors.New("usage: machine grow <name> persist|store <MB>")
+		return errors.New("usage: machine grow <name> persist|store|var <MB>")
 	}
 	var current int64
 	if zvol {

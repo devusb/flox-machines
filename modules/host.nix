@@ -80,6 +80,11 @@ in
         default = 204800;
         description = "Upper Nix store volume size in MB.";
       };
+      nixVarSize = lib.mkOption {
+        type = lib.types.int;
+        default = 51200;
+        description = "Nix state volume size in MB. Holds the machine's Nix database, profiles and builds in progress.";
+      };
     };
 
     frontDoor = {
