@@ -73,8 +73,8 @@
             def base(name):
                 return host.succeed(f"timeout 60 machine ssh {name} cat /etc/machine/base-version").strip()
 
-            def notice(name):
-                return "newer base" in host.succeed(f"timeout 60 machine ssh {name} 'bash -ic true' 2>&1")
+            def notice(name, shell="bash"):
+                return "newer base" in host.succeed(f"timeout 60 machine ssh {name} '{shell} -ic true' 2>&1")
 
             ta = started("alice")
             assert not notice("alice"), "update notice before any update"
@@ -83,11 +83,14 @@
             assert started("alice") == ta, "a host switch restarted alice"
             assert base("alice") == "1", "alice changed base without a restart"
             host.wait_until_succeeds("timeout 60 machine ssh alice 'bash -ic true' 2>&1 | grep -q 'newer base'", timeout=30)
+            for shell in ["zsh", "fish"]:
+                assert notice("alice", shell), f"no update notice in {shell}"
 
             host.succeed("machine restart alice")
             host.wait_until_succeeds("timeout 10 machine ssh alice true", timeout=300)
             assert base("alice") == "2"
-            assert not notice("alice"), "update notice after taking the new base"
+            for shell in ["bash", "zsh", "fish"]:
+                assert not notice("alice", shell), f"update notice in {shell} after taking the new base"
 
             host.succeed("timeout 20 machine ssh bob systemctl reboot || true")
             host.wait_until_succeeds("timeout 10 machine ssh bob cat /etc/machine/base-version | grep -qx 2", timeout=90)
