@@ -189,3 +189,7 @@ fish and zsh are in the base, and the owner's login shell set with `chsh` surviv
 ## 2026-10-05 Nix state volume holds builds
 
 Nix 2.34 builds in `/nix/var/nix/builds` when `build-dir` is unset, which in a machine is the Nix state volume. Its size is `floxMachines.defaults.nixVarSize`, 50 GB by default and sparse, instead of the overlay store module's 1 GB default, and `machine grow <name> var` enlarges it like the other volumes. Merging the Nix state into the store volume was considered and left for later, since it changes the overlay store module in the microvm.nix fork.
+
+## 2026-10-05 Owners are trusted Nix users
+
+`wheel` is in the machine's `nix.settings.trusted-users`, so the owner's own `nix.conf`, `--extra-substituters` and `netrc-file` reach the machine's Nix daemon. Owners already have passwordless sudo in their machine, so this grants nothing they could not do as root, and it only affects the machine's own store layer. Decided by Morgan.
