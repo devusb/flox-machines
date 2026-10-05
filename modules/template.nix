@@ -84,6 +84,9 @@
     pkgs.home-manager
   ];
 
+  programs.fish.enable = true;
+  programs.zsh.enable = true;
+
   environment.etc."machine/base-version".text = floxMachines.baseVersion;
 
   environment.interactiveShellInit = ''
