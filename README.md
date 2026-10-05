@@ -64,6 +64,8 @@ Each machine has one persistent volume mounted at `/persist`. The guest root is 
 
 Anything written elsewhere, including system changes made with sudo, resets when the machine restarts. Keep what should last in home, in Nix or Flox environments, or add it to the template's persistence list.
 
+The owner's login shell is kept across restarts. bash, fish and zsh are in the base; change it with `sudo chsh -s /run/current-system/sw/bin/fish <name>`. The shell is saved to `/persist/etc/machine/shell` and restored at boot, falling back to bash if the saved path is not executable.
+
 Each machine collects garbage in its own Nix store on the 1st and 15th of the month. Only unreferenced paths in the machine's layer are removed; old generations stay, and the host's store is never touched.
 
 With `storage = "image"`, the persistent volume is `persist.img` under `/var/lib/microvms/machine-<name>/`. With `storage = "zfs"`, it is the zvol `<parentDataset>/<name>`, auto-snapshotted. Snapshot a machine with `zfs snapshot <parentDataset>/<name>@<label>`; roll back with the machine stopped.

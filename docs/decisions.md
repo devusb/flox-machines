@@ -181,3 +181,7 @@ An SSH login lands in a plain shell. tmux is installed in the base and people st
 ## 2026-10-05 Machine keys expire and owners re-authenticate
 
 Machines' Tailscale node keys keep the tailnet's expiry. When a key expires, the machine is in `NeedsLogin` and the front door gives its owner a new login link, as on the first claim. Disabling key expiry through the Tailscale API after a claim was considered and set aside, because it needs a credential on the host that can change every device in the tailnet. Decided by Morgan.
+
+## 2026-10-05 chsh persists through /persist
+
+fish and zsh are in the base, and the owner's login shell set with `chsh` survives restarts. A path unit watches `/etc/passwd` and saves the owner's shell to `/persist/etc/machine/shell`; `machine-user` creates the account with it at boot, or with bash if the saved path is not executable. The watcher starts after `machine-user`, so a fallback at boot does not overwrite the saved shell. A file in the person's home that names the shell and saving the shell only at shutdown were considered; `chsh` is the command people already reach for, and watching for the change saves it even if the machine is killed. Decided by Morgan.
