@@ -165,11 +165,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1792854057,
-        "narHash": "sha256-FsRh6rkyHJkMPvRdZgHjnq0EZQoaZR+FtcLaxDjdQiA=",
+        "lastModified": 1792867931,
+        "narHash": "sha256-yaUhuPeZsNDKmH5RuSwydL32fH+8AMaTi0A1UAnxBaI=",
         "owner": "devusb",
         "repo": "microvm.nix",
-        "rev": "9975dad4a5be55b7cb353df57d8fa76f7de15701",
+        "rev": "074cee75e229996287cf41eff5d4113e5dda54e4",
         "type": "github"
       },
       "original": {
