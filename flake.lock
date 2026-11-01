@@ -144,11 +144,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1769548169,
-        "narHash": "sha256-03+JxvzmfwRu+5JafM0DLbxgHttOQZkUtDWBmeUkN8Y=",
+        "lastModified": 1792739756,
+        "narHash": "sha256-s0TeXWG5Ci75Y/Hzon0Z7NrN/fG773Rc54/z6oPFszQ=",
         "owner": "nix-community",
         "repo": "impermanence",
-        "rev": "7b1d382faf603b6d264f58627330f9faa5cba149",
+        "rev": "fa627f4c8b8e92f58f58a73d99ee4e1304e64eb2",
         "type": "github"
       },
       "original": {
@@ -165,11 +165,11 @@
         "spectrum": "spectrum"
       },
       "locked": {
-        "lastModified": 1792867931,
-        "narHash": "sha256-yaUhuPeZsNDKmH5RuSwydL32fH+8AMaTi0A1UAnxBaI=",
+        "lastModified": 1793479647,
+        "narHash": "sha256-jHDU0BrvPi4ZI/BtIdxlbAcaQmIvuIQDf325ZdtIWgM=",
         "owner": "devusb",
         "repo": "microvm.nix",
-        "rev": "074cee75e229996287cf41eff5d4113e5dda54e4",
+        "rev": "a3d7f2ba4f337cf6bd3e597eaaeb4dda41556f8b",
         "type": "github"
       },
       "original": {
